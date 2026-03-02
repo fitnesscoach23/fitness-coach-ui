@@ -1,0 +1,104 @@
+<div class="member-create-page">
+  <section class="hero-card">
+    <div class="hero-top">
+      <h1>Create Member</h1>
+      <span class="hero-pill">{{ sections.length }} onboarding sections</span>
+    </div>
+    <p>Import Google Form responses or fill details manually. Review section by section, then save once complete.</p>
+  </section>
+
+  <section class="upload-card">
+    <div class="upload-head">
+      <h2>Prefill from Excel</h2>
+      <span *ngIf="parsedResponses.length" class="upload-pill">
+        {{ parsedResponses.length }} rows loaded
+      </span>
+    </div>
+
+    <div class="upload-row">
+      <label for="excelUpload" class="upload-btn">Upload Excel</label>
+      <input
+        id="excelUpload"
+        class="file-input"
+        type="file"
+        accept=".xlsx,.xls"
+        (change)="onExcelUpload($event)" />
+      <span *ngIf="excelFileName" class="file-name">{{ excelFileName }}</span>
+    </div>
+
+    <div class="selector-row" *ngIf="parsedResponses.length > 0">
+      <label for="responseIndex">Select Response Row</label>
+      <select
+        id="responseIndex"
+        [value]="selectedResponseIndex"
+        (change)="applyResponseAtIndex(($any($event.target).value))">
+        <option *ngFor="let row of parsedResponses; let i = index" [value]="i">
+          Row {{ i + 2 }} - {{ row.fullName || row.email || 'Unnamed' }}
+        </option>
+      </select>
+    </div>
+
+    <div *ngIf="excelError" class="error">
+      {{ excelError }}
+    </div>
+  </section>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" class="onboarding-form">
+    <section class="section-card" *ngFor="let section of sections; let sIdx = index">
+      <div class="section-head">
+        <h3>{{ section }}</h3>
+        <span class="section-index">{{ sIdx + 1 }}</span>
+      </div>
+
+      <div class="field-grid">
+        <div
+          class="field"
+          [class.field-wide]="field.type === 'textarea'"
+          *ngFor="let field of getFieldsBySection(section); trackBy: trackByFieldKey">
+          <label [for]="field.key">
+            {{ field.label }} <span *ngIf="field.required">*</span>
+          </label>
+
+          <ng-container [ngSwitch]="field.type">
+            <textarea
+              *ngSwitchCase="'textarea'"
+              [id]="field.key"
+              [formControlName]="field.key">
+            </textarea>
+
+            <select
+              *ngSwitchCase="'select'"
+              [id]="field.key"
+              [formControlName]="field.key">
+              <option value="">Select</option>
+              <option *ngFor="let option of field.options" [value]="option">{{ option }}</option>
+            </select>
+
+            <input
+              *ngSwitchDefault
+              [id]="field.key"
+              [type]="field.type"
+              [formControlName]="field.key" />
+          </ng-container>
+
+          <div class="field-error" *ngIf="form.get(field.key)?.touched && form.get(field.key)?.invalid">
+            {{ field.label }} is required
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="actions-bar">
+      <div class="actions-left">
+        <span>Fields marked with * are mandatory.</span>
+      </div>
+      <button type="submit" class="btn btn-primary create-btn" [disabled]="loading">
+        {{ loading ? 'Creating...' : 'Create Member' }}
+      </button>
+    </div>
+
+    <div *ngIf="error" class="error">
+      {{ error }}
+    </div>
+  </form>
+</div>

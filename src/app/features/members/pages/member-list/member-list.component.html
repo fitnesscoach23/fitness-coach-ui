@@ -1,0 +1,57 @@
+<div class="members-page">
+
+  <!-- Header -->
+  <div class="members-header">
+    <div>
+      <h1 class="page-title">Members</h1>
+      <p class="page-subtitle">
+        Manage your coaching clients and track their plans
+      </p>
+    </div>
+
+    <button class="btn-primary" routerLink="/members/create">
+      + Add Member
+    </button>
+  </div>
+
+  <!-- States -->
+  <div *ngIf="loading" class="state-card">
+    Loading members...
+  </div>
+
+  <div *ngIf="error && !loading" class="state-card error">
+    {{ error }}
+  </div>
+
+  <div *ngIf="!loading && !error && members.length === 0" class="state-card">
+    No members found. Add your first member.
+  </div>
+
+  <!-- Table -->
+  <div class="table-card" *ngIf="!loading && !error && members.length > 0">
+    <table class="members-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let m of members" [routerLink]="['/members', m.id]">
+          <td>
+            <div class="member-cell">
+              <div class="member-name">{{ m.fullName }}</div>
+              <div class="member-email-mobile">{{ m.email }}</div>
+            </div>
+          </td>
+
+          <td class="member-email-desktop">
+            {{ m.email }}
+          </td>
+        </tr>
+    </tbody>
+    </table>
+  </div>
+
+</div>

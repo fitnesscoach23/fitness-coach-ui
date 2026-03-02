@@ -1,0 +1,170 @@
+<h2>Edit Diet Plan</h2>
+
+<div *ngIf="loading">Loading diet...</div>
+<div *ngIf="error">{{ error }}</div>
+
+<div *ngIf="diet">
+
+  <h3>{{ diet.title }}</h3>
+  <p *ngIf="diet.notes">{{ diet.notes }}</p>
+
+  <hr />
+
+  <h4>Meals</h4>
+
+  <!-- Add Meal -->
+  <input
+    placeholder="Meal name (Breakfast)"
+    [(ngModel)]="mealName"
+  />
+
+  <button (click)="addMeal()" [disabled]="addingMeal">
+    {{ addingMeal ? 'Adding...' : 'Add Meal' }}
+  </button>
+  <div *ngIf="diet.meals?.length === 0" class="empty-state">
+  <p><strong>No meals added yet.</strong></p>
+  <p>Add your first meal to start building this diet plan.</p>
+</div>
+
+
+  <!-- Meal List -->
+<ul>
+  <li *ngFor="let m of diet.meals" class="meal">
+
+    <!-- ================= VIEW MODE ================= -->
+    <ng-container *ngIf="editingMealId !== m.id">
+
+      <div class="meal-header">
+        <strong>{{ m.mealName }}</strong>
+
+        <button type="button" (click)="startEditMeal(m)">
+          Edit Meal
+        </button>
+        <button
+            type="button"
+            (click)="deleteMeal(m)"
+            [disabled]="deletingMealId === m.id"
+            >
+            {{ deletingMealId === m.id ? 'Deleting...' : 'Delete' }}
+            </button>
+      </div>
+
+      <!-- Items (read-only) -->
+      <table *ngIf="m.items?.length" class="diet-table">
+        <thead>
+          <tr>
+            <th>Food</th>
+            <th>Qty</th>
+            <th>Unit</th>
+            <th>Calories</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let i of m.items">
+            <td>{{ i.foodName }}</td>
+            <td>{{ i.quantity }}</td>
+            <td>{{ i.unit }}</td>
+            <td>{{ i.calories }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div *ngIf="!m.items?.length" class="empty-state small">
+        <p>No food items added.</p>
+        <p>Click <strong>Edit Meal</strong> to add items.</p>
+     </div>
+
+
+    </ng-container>
+
+    <!-- ================= EDIT MODE ================= -->
+    <ng-container *ngIf="editingMealId === m.id">
+
+      <!-- Meal name -->
+      <div class="meal-header">
+        <input
+          [(ngModel)]="editableMealMap[m.id].mealName"
+          placeholder="Meal name"
+        />
+      </div>
+
+      <div
+        *ngIf="editableMealMap[m.id].items.length === 0"
+        class="empty-state small"
+        >
+        <p>This meal has no items yet.</p>
+        <p>Add food items below.</p>
+     </div>
+
+
+      <!-- Editable items -->
+      <table class="diet-table">
+        <thead>
+          <tr>
+            <th>Food</th>
+            <th>Qty</th>
+            <th>Unit</th>
+            <th>Calories</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let i of editableMealMap[m.id].items; let idx = index">
+            <td>
+              <input [(ngModel)]="i.foodName" />
+            </td>
+            <td>
+              <input type="number" [(ngModel)]="i.quantity" />
+            </td>
+            <td>
+              <input [(ngModel)]="i.unit" />
+            </td>
+            <td>
+              <input type="number" [(ngModel)]="i.calories" />
+            </td>
+            <td>
+              <button type="button" (click)="removeLocalItem(m.id, idx)">
+                ✕
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Add local item -->
+      <button type="button" (click)="addLocalItem(m.id)">
+        + Add Item
+      </button>
+
+      <!-- Actions -->
+      <div class="meal-actions">
+        <button
+            type="button"
+            (click)="saveMeal(m)"
+            [disabled]="
+                savingMealId === m.id ||
+                !editableMealMap[m.id].mealName ||
+                editableMealMap[m.id].items.length === 0
+            "
+        >
+                {{ savingMealId === m.id ? 'Saving...' : 'Save Meal' }}
+            </button>
+
+
+        <button
+          type="button"
+          (click)="cancelEditMeal()"
+          [disabled]="savingMealId === m.id"
+        >
+          Cancel
+        </button>
+      </div>
+
+    </ng-container>
+
+  </li>
+</ul>
+
+
+
+</div>

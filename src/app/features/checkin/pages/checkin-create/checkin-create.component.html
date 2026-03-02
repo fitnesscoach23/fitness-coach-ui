@@ -1,0 +1,178 @@
+<div class="checkin-create-page">
+  <section class="hero-card">
+    <div>
+      <h1>Create Check-in</h1>
+      <p>Log weekly progress metrics with mandatory front, side, and back photos.</p>
+    </div>
+  </section>
+
+  <div *ngIf="error" class="alert error">
+    {{ error }}
+  </div>
+
+  <div *ngIf="success" class="alert success">
+    Check-in submitted successfully.
+  </div>
+
+  <section class="import-card">
+    <div class="section-heading">
+      <h2>Prefill from Excel</h2>
+      <p>Upload your Fitness Progress Tracker responses and prefill the check-in form.</p>
+    </div>
+
+    <div class="import-row">
+      <label for="checkinExcel" class="upload-btn">Upload Excel</label>
+      <input
+        id="checkinExcel"
+        class="file-input"
+        type="file"
+        accept=".xlsx,.xls"
+        (change)="onExcelUpload($event)" />
+      <span class="file-name" *ngIf="excelFileName">{{ excelFileName }}</span>
+    </div>
+
+    <div class="import-row selector-row" *ngIf="parsedResponses.length > 0">
+      <label for="responseRow">Select Response Row</label>
+      <select
+        id="responseRow"
+        [value]="selectedResponseIndex"
+        (change)="applyResponseAtIndex(($any($event.target).value))">
+        <option *ngFor="let row of parsedResponses; let i = index" [value]="i">
+          Row {{ i + 2 }} - {{ row.memberName || 'Unnamed' }}
+        </option>
+      </select>
+    </div>
+
+    <div *ngIf="excelError" class="error-inline">
+      {{ excelError }}
+    </div>
+
+    <div *ngIf="importWarning" class="warn-inline">
+      {{ importWarning }}
+    </div>
+  </section>
+
+  <form class="editor-card" (ngSubmit)="submit()">
+    <div class="section-heading">
+      <h2>Progress Details</h2>
+    </div>
+
+    <div class="form-grid">
+      <div class="field-group">
+        <label for="memberId">Member</label>
+        <select id="memberId" [(ngModel)]="memberId" name="memberId" (change)="onMemberChange()" required>
+          <option value="">Select member</option>
+          <option *ngFor="let m of members" [value]="m.id">
+            {{ m.fullName }}
+          </option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label for="weight">Weight (kg)</label>
+        <input id="weight" type="number" [(ngModel)]="weight" name="weight" required />
+      </div>
+
+      <div class="field-group">
+        <label for="dietAdherence">Diet Adherence (1-10)</label>
+        <input id="dietAdherence" type="number" min="1" max="10" [(ngModel)]="dietAdherence" name="dietAdherence" />
+      </div>
+
+      <div class="field-group span-2">
+        <label for="stepsAvg">Average Daily Steps</label>
+        <input id="stepsAvg" type="number" [(ngModel)]="stepsAvg" name="stepsAvg" />
+      </div>
+    </div>
+
+    <div class="field-group notes-field">
+      <label for="notes">Coach Notes</label>
+      <textarea id="notes" [(ngModel)]="notes" name="notes" placeholder="Energy trends, adherence notes, recommendations"></textarea>
+    </div>
+
+    <div class="section-heading photos-heading">
+      <h2>Progress Photos</h2>
+      <p>Upload front, side and back photos. Max {{ MAX_FILE_SIZE_MB }} MB each.</p>
+    </div>
+
+    <div class="url-grid">
+      <div class="field-group">
+        <label>Front Pose Drive URL</label>
+        <a
+          *ngIf="frontViewUrl"
+          class="url-display"
+          [href]="frontViewUrl"
+          target="_blank"
+          rel="noopener noreferrer">
+          {{ frontViewUrl }}
+        </a>
+        <span *ngIf="!frontViewUrl" class="url-empty">No URL available</span>
+      </div>
+
+      <div class="field-group">
+        <label>Side Pose Drive URL</label>
+        <a
+          *ngIf="sideViewUrl"
+          class="url-display"
+          [href]="sideViewUrl"
+          target="_blank"
+          rel="noopener noreferrer">
+          {{ sideViewUrl }}
+        </a>
+        <span *ngIf="!sideViewUrl" class="url-empty">No URL available</span>
+      </div>
+
+      <div class="field-group">
+        <label>Back Pose Drive URL</label>
+        <a
+          *ngIf="backViewUrl"
+          class="url-display"
+          [href]="backViewUrl"
+          target="_blank"
+          rel="noopener noreferrer">
+          {{ backViewUrl }}
+        </a>
+        <span *ngIf="!backViewUrl" class="url-empty">No URL available</span>
+      </div>
+    </div>
+
+    <div class="photo-grid">
+      <div class="photo-card">
+        <label for="frontPhoto">Front</label>
+        <input id="frontPhoto" type="file" accept="image/*" (change)="onPhotoSelected($event, 'FRONT')" />
+        <span class="status-pill" [class.done]="photoStatus.front">
+          {{ photoStatus.front ? 'Selected' : 'Missing' }}
+        </span>
+      </div>
+
+      <div class="photo-card">
+        <label for="sidePhoto">Side</label>
+        <input id="sidePhoto" type="file" accept="image/*" (change)="onPhotoSelected($event, 'SIDE')" />
+        <span class="status-pill" [class.done]="photoStatus.side">
+          {{ photoStatus.side ? 'Selected' : 'Missing' }}
+        </span>
+      </div>
+
+      <div class="photo-card">
+        <label for="backPhoto">Back</label>
+        <input id="backPhoto" type="file" accept="image/*" (change)="onPhotoSelected($event, 'BACK')" />
+        <span class="status-pill" [class.done]="photoStatus.back">
+          {{ photoStatus.back ? 'Selected' : 'Missing' }}
+        </span>
+      </div>
+    </div>
+
+    <div class="error-inline" *ngIf="photoError">
+      {{ photoError }}
+    </div>
+
+    <div class="error-inline" *ngIf="submitAttempted && !photosValid && !photoError">
+      All three photos (front, side, back) are mandatory.
+    </div>
+
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit" [disabled]="loading || !photosValid">
+        {{ loading ? 'Submitting...' : 'Submit Check-in' }}
+      </button>
+    </div>
+  </form>
+</div>

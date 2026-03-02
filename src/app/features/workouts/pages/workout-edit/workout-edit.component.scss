@@ -1,0 +1,34 @@
+.add-exercise {
+  margin: 6px 0 10px 12px;
+}
+
+.add-exercise input {
+  margin-right: 6px;
+}
+.add-set {
+  margin: 6px 0 10px 12px;
+}
+
+.add-set input {
+  width: 70px;
+  margin-right: 6px;
+}
+.exercise-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.exercise-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.day-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}

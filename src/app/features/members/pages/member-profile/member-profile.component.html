@@ -1,0 +1,506 @@
+<div class="page-container">
+<!-- MEMBER HERO -->
+<div class="member-hero" *ngIf="member">
+
+  <div class="hero-left">
+    <h1 class="member-name">{{ member.fullName }}</h1>
+    <div class="member-email">{{ member.email }}</div>
+  </div>
+
+  <div class="hero-right">
+    <span
+      class="status-badge"
+      *ngIf="subscription?.status === 'ACTIVE'">
+      Active
+    </span>
+
+    <button
+      [routerLink]="['/members', member.id, 'edit']"
+      class="primary-btn">
+      Edit
+    </button>
+
+    <button
+      class="danger-btn"
+      (click)="deleteMember()"
+      [disabled]="deletingMember">
+      {{ deletingMember ? 'Deleting...' : 'Delete' }}
+    </button>
+
+    <button routerLink="/members" class="secondary-btn">
+      Back
+    </button>
+  </div>
+
+</div>
+
+<!-- QUICK STATS -->
+<div class="quick-stats" *ngIf="member">
+
+  <div class="stat-item">
+    <div class="stat-label">Active Since</div>
+    <div class="stat-value">
+      {{ subscription?.startDate || '-' }}
+    </div>
+  </div>
+
+  <div class="stat-item">
+    <div class="stat-label">Current Plan</div>
+    <div class="stat-value">
+      {{ subscription?.planName || 'No Plan' }}
+    </div>
+  </div>
+
+  <div class="stat-item">
+    <div class="stat-label">Renewal Date</div>
+    <div class="stat-value">
+      {{ subscription?.endDate || '-' }}
+    </div>
+  </div>
+
+</div>
+
+<!-- SECTION TABS -->
+<div class="section-tabs">
+  <button
+    [class.active]="activeSection === 'overview'"
+    (click)="setSection('overview')">
+    Overview
+  </button>
+
+  <button
+    [class.active]="activeSection === 'billing'"
+    (click)="setSection('billing')">
+    Billing
+  </button>
+
+  <button
+    [class.active]="activeSection === 'progress'"
+    (click)="setSection('progress')">
+    Progress
+  </button>
+
+  <button
+    [class.active]="activeSection === 'workout'"
+    (click)="setSection('workout')">
+    Workout
+  </button>
+
+  <button
+    [class.active]="activeSection === 'diet'"
+    (click)="setSection('diet')">
+    Diet
+  </button>
+</div>
+
+<!-- LOADING -->
+<div *ngIf="loading" class="state">
+  Loading member...
+</div>
+
+<div *ngIf="error && !loading" class="state error">
+  {{ error }}
+</div>
+
+<div *ngIf="member && !loading">
+
+  <!-- ================= OVERVIEW ================= -->
+<div *ngIf="activeSection === 'overview'" class="overview-grid">
+
+  <div class="card overview-headline">
+    <h3 class="card-title">Member Snapshot</h3>
+
+    <div class="info-grid compact">
+      <div class="info-item">
+        <label>Phone</label>
+        <span>{{ formatMemberValue(member.phone) }}</span>
+      </div>
+      <div class="info-item">
+        <label>Gender</label>
+        <span>{{ formatMemberValue(member.gender) }}</span>
+      </div>
+      <div class="info-item">
+        <label>Main Goal</label>
+        <span>{{ formatMemberValue(member.mainTrainingGoal || member.goal) }}</span>
+      </div>
+      <div class="info-item">
+        <label>Current Weight</label>
+        <span>{{ formatMemberValue(member.currentWeightKg) }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUBSCRIPTION CARD -->
+  <div class="card overview-section-card">
+
+    <h3 class="card-title">Subscription</h3>
+
+    <div *ngIf="subscriptionLoading">
+      Loading subscription...
+    </div>
+
+    <div *ngIf="subscription && !subscriptionLoading" class="info-grid">
+
+      <div>
+        <label>Status</label>
+        <span
+          class="status-badge"
+          [ngClass]="{
+            'active': subscription.status === 'ACTIVE'
+          }">
+          {{ subscription.status }}
+        </span>
+      </div>
+
+      <div>
+        <label>Plan</label>
+        <span>{{ subscription.planName || 'No Plan' }}</span>
+      </div>
+
+      <div>
+        <label>Start</label>
+        <span>{{ subscription.startDate }}</span>
+      </div>
+
+      <div>
+        <label>End</label>
+        <span>{{ subscription.endDate }}</span>
+      </div>
+
+    </div>
+
+    <div *ngIf="!subscription && !subscriptionLoading">
+      No active subscription
+    </div>
+
+  </div>
+
+  <div class="card overview-section-card" *ngFor="let section of overviewSections">
+    <h3 class="card-title">{{ section.title }}</h3>
+
+    <div class="info-grid compact">
+      <div class="info-item" *ngFor="let item of section.items">
+        <label>{{ item.label }}</label>
+
+        <a
+          *ngIf="item.asLink && isExternalLink(getMemberValue(item.key))"
+          [href]="getMemberValue(item.key)"
+          target="_blank"
+          rel="noopener noreferrer">
+          {{ getMemberValue(item.key) }}
+        </a>
+
+        <span
+          *ngIf="!(item.asLink && isExternalLink(getMemberValue(item.key)))"
+          [class.muted-value]="!hasMemberValue(item.key)">
+          {{ formatMemberValue(getMemberValue(item.key)) }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+  <!-- ================= BILLING ================= -->
+ <div *ngIf="activeSection === 'billing'" class="billing-layout">
+
+  <!-- ACTION CARDS -->
+  <div class="billing-actions">
+
+    <!-- Manual Payment -->
+    <div class="card">
+      <h3 class="card-title">Manual Payment</h3>
+
+      <div class="inline-form">
+        <input
+          type="number"
+          placeholder="Amount"
+          [(ngModel)]="paymentAmount" />
+
+        <button
+          (click)="startManualPayment()"
+          [disabled]="paymentActionLoading"
+          class="primary-btn">
+          {{ paymentActionLoading ? 'Processing...' : 'Start Payment' }}
+        </button>
+      </div>
+
+      <div *ngIf="paymentActionError" class="error">
+        {{ paymentActionError }}
+      </div>
+    </div>
+
+    <!-- Online Payment -->
+    <div class="card">
+      <h3 class="card-title">Online Payment</h3>
+
+      <div class="inline-form">
+        <input
+          type="number"
+          placeholder="Amount"
+          [(ngModel)]="onlineAmount" />
+
+        <button
+          (click)="startOnlinePayment()"
+          [disabled]="onlinePaymentLoading"
+          class="primary-btn">
+          {{ onlinePaymentLoading ? 'Processing...' : 'Start Online Payment' }}
+        </button>
+      </div>
+
+      <div *ngIf="onlinePaymentError" class="error">
+        {{ onlinePaymentError }}
+      </div>
+    </div>
+
+  </div>
+  
+  <div class="billing-summary">
+
+  <div class="summary-card">
+    <div class="summary-label">Total Paid</div>
+    <div class="summary-value">₹ {{ totalPaid }}</div>
+  </div>
+
+  <div class="summary-card pending-card">
+    <div class="summary-label">Pending</div>
+    <div class="summary-value">₹ {{ totalPending }}</div>
+  </div>
+
+</div>
+
+<hr class="section-divider">
+  <!-- PAYMENT HISTORY -->
+  <div class="card">
+
+    <h3 class="card-title">Payment History</h3>
+
+    <div *ngIf="paymentsLoading">Loading payments...</div>
+
+    <table *ngIf="payments.length > 0" class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th>Method</th>
+          <th></th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let p of payments; trackBy: trackByPaymentId">
+          <td>{{ p.paymentDate }}</td>
+          <td>₹ {{ p.amount }}</td>
+          <td>
+            <span
+              class="payment-badge"
+              [ngClass]="{
+                'success': p.status === 'SUCCESS',
+                'pending': p.status === 'PENDING'
+              }">
+              {{ p.status }}
+            </span>
+          </td>
+          <td>{{ p.mode }}</td>
+          <td>
+            <button
+              *ngIf="p.status === 'PENDING' && p.mode === 'MANUAL'"
+              (click)="confirmPayment(p.id)"
+              class="secondary-btn">
+              Confirm
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="!paymentsLoading && payments.length === 0">
+      No payment history found
+    </div>
+
+  </div>
+
+</div>
+  <!-- ================= PROGRESS ================= -->
+   <div class="progress-summary" *ngIf="activeSection === 'progress' && progressCheckins.length">
+
+  <div class="summary-card">
+    <div class="summary-label">Latest Weight</div>
+    <div class="summary-value">{{ latestWeight }} kg</div>
+  </div>
+
+  <div class="summary-card">
+    <div class="summary-label">Weight Change</div>
+    <div
+      class="summary-value"
+      [ngClass]="{
+        'positive': weightChange < 0,
+        'negative': weightChange > 0
+      }">
+      {{ weightChange > 0 ? '+' : '' }}{{ weightChange }} kg
+    </div>
+  </div>
+
+  <div class="summary-card">
+    <div class="summary-label">Avg Diet</div>
+    <div class="summary-value">
+      {{ avgDietAdherence | number:'1.0-1' }}/10
+    </div>
+  </div>
+
+  <div class="summary-card">
+    <div class="summary-label">Avg Energy</div>
+    <div class="summary-value">
+      {{ avgEnergy | number:'1.0-1' }}/10
+    </div>
+  </div>
+
+</div>
+  <div *ngIf="activeSection === 'progress'" class="card">
+
+    <h3 class="section-title">Progress Check-ins</h3>
+
+    <div class="progress-content">
+      <div class="progress-list">
+        <div *ngIf="progressCheckinsLoading">Loading...</div>
+
+        <div *ngFor="let c of progressCheckins" class="checkin-card">
+
+          <div class="checkin-header">
+            <div class="checkin-date">
+              {{ c.submittedAt | date:'mediumDate' }}
+            </div>
+          </div>
+
+          <div class="checkin-grid">
+            <div *ngIf="c.weight"><b>Weight</b><span>{{ c.weight }} kg</span></div>
+            <div *ngIf="c.dietAdherence"><b>Diet</b><span>{{ c.dietAdherence }}/10</span></div>
+            <div *ngIf="c.energy"><b>Energy</b><span>{{ c.energy }}/10</span></div>
+            <div *ngIf="c.stepsAvg"><b>Steps</b><span>{{ c.stepsAvg }}</span></div>
+          </div>
+
+          <div *ngIf="c.notes" class="checkin-notes">
+            {{ c.notes }}
+          </div>
+
+          <div *ngIf="checkinPhotos[c.id]?.length" class="photo-row">
+            <img
+              *ngFor="let p of checkinPhotos[c.id]"
+              [src]="getCheckinPhotoUrl(p.fileName)"
+              class="progress-photo"
+            />
+          </div>
+        </div>
+
+        <div *ngIf="!progressCheckinsLoading && progressCheckins.length === 0">
+          No progress check-ins found.
+        </div>
+      </div>
+
+      <div class="card weight-card">
+        <h3 class="card-title">Weight Progress</h3>
+        <div class="chart-wrapper">
+          <canvas id="weightChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+ <!-- ================= WORKOUT ================= -->
+<div *ngIf="activeSection === 'workout'" class="card">
+
+  <div class="workout-toolbar">
+    <h3 class="card-title">Workout Plan</h3>
+    <button
+      class="secondary-btn"
+      (click)="exportWorkoutPlanToExcel()"
+      [disabled]="!activeWorkoutPlan">
+      Export to Excel
+    </button>
+  </div>
+
+  <!-- Active Plan -->
+<div *ngIf="activeWorkoutPlan" class="active-plan">
+  <h3 class="plan-title">{{ activeWorkoutPlan.title }}</h3>
+
+  <div *ngFor="let day of activeWorkoutPlan.days" class="day-card">
+
+    <h4 class="day-title">{{ day.dayName }}</h4>
+
+    <!-- Header Row -->
+    <div class="workout-header">
+      <div>Exercise</div>
+      <div>Set</div>
+      <div>Reps</div>
+    </div>
+
+    <!-- Exercise Rows -->
+    <div *ngFor="let ex of day.exercises">
+
+      <div *ngFor="let s of ex.sets" class="workout-row">
+        <div class="exercise-col">{{ ex.name }}</div>
+        <div>{{ s.setNumber }}</div>
+        <div>{{ s.reps }}</div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+</div>
+
+<!-- ================= DIET ================= -->
+<div *ngIf="activeSection === 'diet'" class="card">
+
+  <div class="diet-header">
+    <h3>Diet Plan</h3>
+    <button
+      class="secondary-btn"
+      (click)="exportDietPlanToExcel()"
+      [disabled]="!dietPlan">
+      Export to Excel
+    </button>
+  </div>
+
+  <div *ngIf="dietPlan">
+
+    <h4 class="plan-title">{{ dietPlan.title }}</h4>
+
+    <div *ngFor="let meal of groupedDietMeals" class="meal-card">
+
+      <h5 class="meal-title">{{ meal.mealName }}</h5>
+
+      <!-- Column Header -->
+      <div class="diet-header-row">
+        <div>Food</div>
+        <div>Qty</div>
+        <div>Cal</div>
+        <div>P</div>
+        <div>C</div>
+        <div>F</div>
+      </div>
+
+      <!-- Food Rows -->
+      <div *ngFor="let i of meal.items" class="diet-row">
+        <div class="food-name">{{ i.foodName }}</div>
+        <div>{{ i.quantity }}</div>
+        <div>{{ i.calories }}</div>
+        <div>{{ i.protein }}</div>
+        <div>{{ i.carbs }}</div>
+        <div>{{ i.fat }}</div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div *ngIf="!dietPlan">
+    No diet plan assigned
+  </div>
+
+</div>
+</div>
+</div>

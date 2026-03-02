@@ -1,0 +1,204 @@
+<div class="workout-create-page">
+  <section class="hero-card">
+    <div class="hero-content">
+      <h1>Create and Assign Workout Plan</h1>
+      <p>Build structured programs and assign them instantly to a member.</p>
+    </div>
+
+    <div class="member-bar">
+      <div class="field-group">
+        <label for="memberSelect">Member</label>
+        <select id="memberSelect" [(ngModel)]="memberId" (change)="onMemberChange()">
+          <option value="">Select member</option>
+          <option *ngFor="let m of members" [value]="m.id">
+            {{ m.fullName }}
+          </option>
+        </select>
+      </div>
+
+      <div class="meta" *ngIf="memberId">
+        <span class="meta-pill">{{ memberPlans.length }} plans</span>
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="startCreate()"
+          [disabled]="creatingNewPlan">
+          + Create Workout Plan
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="state-card" *ngIf="!memberId">
+    Select a member to view existing plans or create a new one.
+  </section>
+
+  <section class="state-card" *ngIf="memberId && loadingPlans">
+    Loading workout plans...
+  </section>
+
+  <section class="state-card" *ngIf="memberId && !loadingPlans && memberPlans.length === 0">
+    No workout plans found for this member. Start by creating one.
+  </section>
+
+  <section *ngIf="memberId && !loadingPlans && memberPlans.length" class="plans-section">
+    <div class="section-header">
+      <h2>Existing Workout Plans</h2>
+    </div>
+
+    <article *ngFor="let p of memberPlans" class="plan-card">
+      <header class="plan-header">
+        <div>
+          <h3>{{ p.title }}</h3>
+          <p class="plan-meta">
+            <span *ngIf="p.createdAt">Created {{ p.createdAt | date:'mediumDate' }}</span>
+            <span *ngIf="!p.createdAt">Created date unavailable</span>
+            <span class="dot">•</span>
+            <span>{{ p.gridRows?.length || 0 }} rows</span>
+          </p>
+        </div>
+
+        <div class="plan-actions">
+          <button
+            *ngIf="editablePlanId !== p.id"
+            type="button"
+            class="btn btn-secondary"
+            (click)="enableEdit(p)">
+            Edit
+          </button>
+
+          <button
+            *ngIf="editablePlanId === p.id"
+            type="button"
+            class="btn btn-secondary"
+            (click)="addRowToPlan(p)">
+            + Add Row
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-danger"
+            (click)="deletePlan(p)"
+            [disabled]="deletingPlanId === p.id">
+            {{ deletingPlanId === p.id ? 'Deleting...' : 'Delete Plan' }}
+          </button>
+
+          <button
+            *ngIf="editablePlanId === p.id"
+            type="button"
+            class="btn btn-primary"
+            (click)="savePlan(p)"
+            [disabled]="savingPlanId === p.id">
+            {{ savingPlanId === p.id ? 'Saving...' : 'Save' }}
+          </button>
+
+          <button
+            *ngIf="editablePlanId === p.id"
+            type="button"
+            class="btn btn-secondary"
+            (click)="cancelEdit(p)"
+            [disabled]="savingPlanId === p.id">
+            Cancel
+          </button>
+        </div>
+      </header>
+
+      <div class="table-wrap">
+        <table class="workout-grid">
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Exercise</th>
+              <th>Set</th>
+              <th>Reps</th>
+              <th *ngIf="editablePlanId === p.id"></th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let row of p.gridRows; let i = index">
+              <td>
+                <input [(ngModel)]="row.dayName" [disabled]="editablePlanId !== p.id" />
+              </td>
+              <td>
+                <input [(ngModel)]="row.exerciseName" [disabled]="editablePlanId !== p.id" />
+              </td>
+              <td>
+                <input type="number" [(ngModel)]="row.setNumber" [disabled]="editablePlanId !== p.id" />
+              </td>
+              <td>
+                <input [(ngModel)]="row.reps" [disabled]="editablePlanId !== p.id" />
+              </td>
+              <td *ngIf="editablePlanId === p.id">
+                <button type="button" class="row-remove" (click)="removeRowFromPlan(p, i)">Remove</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <section *ngIf="creatingNewPlan" class="create-card">
+    <div class="section-header">
+      <h2>New Workout Plan</h2>
+    </div>
+
+    <div class="create-grid">
+      <div class="field-group">
+        <label for="planTitle">Plan Title</label>
+        <input id="planTitle" [(ngModel)]="title" placeholder="e.g. 4-Day Hypertrophy Block" />
+      </div>
+
+      <div class="field-group notes-field">
+        <label for="planNotes">Notes</label>
+        <textarea id="planNotes" [(ngModel)]="notes" placeholder="Goals, constraints, progression cues"></textarea>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="workout-grid">
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>Exercise</th>
+            <th>Set</th>
+            <th>Reps</th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let row of newPlanRows; let i = index">
+            <td><input [(ngModel)]="row.dayName" /></td>
+            <td><input [(ngModel)]="row.exerciseName" /></td>
+            <td><input type="number" [(ngModel)]="row.setNumber" /></td>
+            <td><input [(ngModel)]="row.reps" /></td>
+            <td>
+              <button type="button" class="row-remove" (click)="newPlanRows.splice(i, 1)">Remove</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="builder-actions">
+      <button type="button" class="btn btn-secondary" (click)="newPlanRows.push(emptyRow())">
+        + Add Row
+      </button>
+
+      <div class="right-actions">
+        <button class="btn btn-primary" (click)="saveAndAssign()" [disabled]="loading">
+          {{ loading ? 'Saving...' : 'Save & Assign' }}
+        </button>
+        <button class="btn btn-secondary" (click)="cancelCreate()" [disabled]="loading">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <div *ngIf="error" class="error-card">
+    {{ error }}
+  </div>
+</div>

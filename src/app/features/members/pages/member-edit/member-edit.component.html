@@ -1,0 +1,80 @@
+<div class="member-edit-page">
+  <div class="top-nav">
+    <button type="button" class="btn btn-secondary" [routerLink]="['/members', memberId]">
+      Back to Member Profile
+    </button>
+  </div>
+
+  <section class="hero-card">
+    <div class="hero-top">
+      <h1>Edit Member</h1>
+      <span class="hero-pill">{{ sections.length }} sections</span>
+    </div>
+    <p>Update onboarding details and keep the full member profile complete and consistent.</p>
+  </section>
+
+  <div class="state-card" *ngIf="loading">
+    Loading member details...
+  </div>
+
+  <div class="error" *ngIf="error">
+    {{ error }}
+  </div>
+
+  <form *ngIf="!loading" [formGroup]="form" (ngSubmit)="save()" class="onboarding-form">
+    <section class="section-card" *ngFor="let section of sections; let i = index">
+      <div class="section-head">
+        <h3>{{ section }}</h3>
+        <span class="section-index">{{ i + 1 }}</span>
+      </div>
+
+      <div class="field-grid">
+        <div
+          class="field"
+          [class.field-wide]="field.type === 'textarea'"
+          *ngFor="let field of getFieldsBySection(section); trackBy: trackByFieldKey">
+          <label [for]="field.key">
+            {{ field.label }} <span *ngIf="field.required">*</span>
+          </label>
+
+          <ng-container [ngSwitch]="field.type">
+            <textarea
+              *ngSwitchCase="'textarea'"
+              [id]="field.key"
+              [formControlName]="field.key">
+            </textarea>
+
+            <select
+              *ngSwitchCase="'select'"
+              [id]="field.key"
+              [formControlName]="field.key">
+              <option value="">Select</option>
+              <option *ngFor="let option of field.options" [value]="option">
+                {{ option }}
+              </option>
+            </select>
+
+            <input
+              *ngSwitchDefault
+              [id]="field.key"
+              [type]="field.type"
+              [formControlName]="field.key" />
+          </ng-container>
+
+          <div class="field-error" *ngIf="form.get(field.key)?.touched && form.get(field.key)?.invalid">
+            {{ field.label }} is required
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="actions-bar">
+      <button type="button" class="btn btn-secondary" [routerLink]="['/members', memberId]">
+        Cancel
+      </button>
+      <button type="submit" class="btn btn-primary create-btn" [disabled]="saving">
+        {{ saving ? 'Saving...' : 'Save Changes' }}
+      </button>
+    </div>
+  </form>
+</div>

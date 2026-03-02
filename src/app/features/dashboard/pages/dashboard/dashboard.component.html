@@ -1,0 +1,52 @@
+<div class="dashboard">
+
+  <!-- Header -->
+  <div class="dashboard-header">
+    <h1 class="dashboard-title">Dashboard</h1>
+    <p class="dashboard-subtitle">
+      Overview of your coaching business performance
+    </p>
+  </div>
+
+  <!-- KPI Grid -->
+  <div class="kpi-grid">
+
+    <div class="kpi-card">
+      <div class="kpi-label">Total Members</div>
+
+      <div class="kpi-value" *ngIf="!loading">
+        {{ totalMembers }}
+      </div>
+
+      <div class="kpi-value loading" *ngIf="loading">
+        Loading...
+      </div>
+
+      <div class="kpi-meta" *ngIf="!loading">
+        Active clients in system
+      </div>
+    </div>
+
+    <!-- Placeholder KPI cards (UI-ready for future backend stats) -->
+
+    <div class="kpi-card">
+      <div class="kpi-label">Active Plans</div>
+      <div class="kpi-value">18</div>
+      <div class="kpi-meta">Workout + Diet</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-label">Monthly Revenue</div>
+      <div class="kpi-value">₹ 48,000</div>
+      <div class="kpi-meta">+12% vs last month</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-label">Check-ins This Week</div>
+      <div class="kpi-value">9</div>
+      <div class="kpi-meta">5 pending review</div>
+    </div>
+
+  </div>
+
+</div>

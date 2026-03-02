@@ -1,0 +1,199 @@
+<h2>Edit Workout Plan</h2>
+
+<div *ngIf="loading">Loading workout...</div>
+<div *ngIf="error">{{ error }}</div>
+
+<div *ngIf="workout">
+
+  <h3>{{ workout.title }}</h3>
+  <p *ngIf="workout.notes">{{ workout.notes }}</p>
+
+  <hr />
+
+  <h4>Workout Days</h4>
+
+  <!-- Add Day -->
+  <div class="add-day">
+    <input
+      placeholder="Day name (e.g. Push A)"
+      [(ngModel)]="dayName"
+    />
+
+    <button (click)="addDay()" [disabled]="addingDay">
+      {{ addingDay ? 'Adding...' : 'Add Day' }}
+    </button>
+  </div>
+
+  <!-- List Days -->
+<ul>
+  <li *ngFor="let d of workout.days">
+
+    <div class="day-header">
+  <strong>{{ d.dayName }}</strong>
+
+  <button
+    type="button"
+    (click)="deleteDay(d)"
+    [disabled]="deletingDayId === d.id"
+  >
+    {{ deletingDayId === d.id ? 'Deleting...' : 'Delete Day' }}
+  </button>
+</div>
+
+
+    <!-- Exercises -->
+    <ul>
+     <li *ngFor="let ex of d.exercises" class="exercise">
+
+  <!-- ================= VIEW MODE ================= -->
+  <ng-container *ngIf="editingExerciseId !== ex.id">
+
+    <div class="exercise-header">
+      <strong>{{ ex.name }}</strong>
+      <span *ngIf="ex.notes"> — {{ ex.notes }}</span>
+
+      <button type="button" (click)="startEditExercise(ex)">
+        Edit Exercise
+      </button>
+      <button
+        type="button"
+        (click)="deleteExercise(ex)"
+        [disabled]="deletingExerciseId === ex.id"
+        >
+        {{ deletingExerciseId === ex.id ? 'Deleting...' : 'Delete' }}
+     </button>
+
+    </div>
+
+    <!-- Sets (read-only) -->
+    <table *ngIf="ex.sets?.length" class="sets-table">
+      <thead>
+        <tr>
+          <th>Set</th>
+          <th>Reps</th>
+          <th>Weight</th>
+          <th>RPE</th>
+          <th>Tempo</th>
+          <th>Rest</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let s of ex.sets">
+          <td>{{ s.setNumber }}</td>
+          <td>{{ s.reps }}</td>
+          <td>{{ s.weight ?? '-' }}</td>
+          <td>{{ s.rpe ?? '-' }}</td>
+          <td>{{ s.tempo ?? '-' }}</td>
+          <td>{{ s.rest ?? '-' }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="!ex.sets?.length" class="empty-state small">
+      <p>No sets added.</p>
+      <p>Click <strong>Edit Exercise</strong> to add sets.</p>
+    </div>
+
+  </ng-container>
+
+  <!-- ================= EDIT MODE ================= -->
+  <ng-container *ngIf="editingExerciseId === ex.id">
+
+    <!-- Exercise fields -->
+    <div class="exercise-header">
+      <input
+        placeholder="Exercise name"
+        [(ngModel)]="editableExerciseMap[ex.id].name"
+      />
+
+      <input
+        placeholder="Notes (optional)"
+        [(ngModel)]="editableExerciseMap[ex.id].notes"
+      />
+    </div>
+
+    <!-- Editable sets -->
+    <table class="sets-table">
+      <thead>
+        <tr>
+          <th>Set</th>
+          <th>Reps</th>
+          <th>Weight</th>
+          <th>RPE</th>
+          <th>Tempo</th>
+          <th>Rest</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="
+            let s of editableExerciseMap[ex.id].sets;
+            let idx = index
+          "
+        >
+          <td>
+            <input type="number" [(ngModel)]="s.setNumber" />
+          </td>
+          <td>
+            <input type="number" [(ngModel)]="s.reps" />
+          </td>
+          <td>
+            <input type="number" [(ngModel)]="s.weight" />
+          </td>
+          <td>
+            <input type="number" [(ngModel)]="s.rpe" />
+          </td>
+          <td>
+            <input [(ngModel)]="s.tempo" />
+          </td>
+          <td>
+            <input [(ngModel)]="s.rest" />
+          </td>
+          <td>
+            <button type="button" (click)="removeLocalSet(ex.id, idx)">
+              ✕
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <button type="button" (click)="addLocalSet(ex.id)">
+      + Add Set
+    </button>
+
+    <!-- Actions -->
+    <div class="exercise-actions">
+      <button
+        type="button"
+        (click)="saveExercise(ex)"
+        [disabled]="
+          savingExerciseId === ex.id ||
+          !editableExerciseMap[ex.id].name ||
+          editableExerciseMap[ex.id].sets.length === 0
+        "
+      >
+        {{ savingExerciseId === ex.id ? 'Saving...' : 'Save Exercise' }}
+      </button>
+
+      <button
+        type="button"
+        (click)="cancelEditExercise()"
+        [disabled]="savingExerciseId === ex.id"
+      >
+        Cancel
+      </button>
+    </div>
+
+  </ng-container>
+
+</li>
+
+    </ul>
+
+  </li>
+</ul>
+
+
+</div>

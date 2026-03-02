@@ -1,0 +1,118 @@
+<div class="diet-create-page">
+  <section class="hero-card">
+    <div class="hero-content">
+      <h1>Create Diet Plan</h1>
+      <p>Build meal-wise nutrition plans with macro visibility and assign to members.</p>
+    </div>
+
+    <div class="member-bar">
+      <div class="field-group">
+        <label for="memberSelect">Member</label>
+        <select id="memberSelect" [(ngModel)]="selectedMemberId" (change)="onMemberChange()">
+          <option value="">Select member</option>
+          <option *ngFor="let m of members" [value]="m.id">
+            {{ m.fullName }}
+          </option>
+        </select>
+      </div>
+
+      <span *ngIf="memberSelected" class="meta-pill">
+        {{ hasPlan ? 'Existing plan loaded' : 'No plan yet' }}
+      </span>
+    </div>
+  </section>
+
+  <section *ngIf="!memberSelected" class="state-card">
+    Select a member to create or edit a diet plan.
+  </section>
+
+  <section *ngIf="memberSelected" class="editor-card">
+    <div class="form-grid">
+      <div class="field-group">
+        <label for="dietTitle">Plan Title</label>
+        <input id="dietTitle" placeholder="e.g. Fat Loss Phase 1" [(ngModel)]="title" />
+      </div>
+
+      <div class="field-group notes-field">
+        <label for="dietNotes">Notes</label>
+        <textarea id="dietNotes" placeholder="Coach notes, meal timing, restrictions" [(ngModel)]="notes"></textarea>
+      </div>
+    </div>
+
+    <div *ngIf="!hasPlan" class="state-inline">
+      This member has no diet plan yet. Add details above and create one.
+    </div>
+
+    <div class="top-actions" *ngIf="!hasPlan">
+      <button class="btn btn-primary" (click)="save()" [disabled]="loading || !title">
+        {{ loading ? 'Creating...' : 'Create Diet Plan' }}
+      </button>
+    </div>
+
+    <div *ngIf="hasPlan && planId">
+      <div *ngIf="dietRows.length === 0" class="state-inline">
+        No meals added yet.
+        <button type="button" class="btn btn-secondary" (click)="addRow()">+ Add First Meal</button>
+      </div>
+
+      <div *ngIf="dietRows.length > 0" class="table-wrap">
+        <table class="diet-grid">
+          <thead>
+            <tr>
+              <th>Meal</th>
+              <th>Food</th>
+              <th>Qty</th>
+              <th>Unit</th>
+              <th>Protein</th>
+              <th>Carbs</th>
+              <th>Fat</th>
+              <th>Calories</th>
+              <th></th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let row of dietRows; let i = index">
+              <td><input [(ngModel)]="row.mealType" /></td>
+              <td><input [(ngModel)]="row.foodName" /></td>
+              <td><input type="number" [(ngModel)]="row.quantity" /></td>
+              <td><input [(ngModel)]="row.unit" /></td>
+              <td><input type="number" [(ngModel)]="row.protein" /></td>
+              <td><input type="number" [(ngModel)]="row.carbs" /></td>
+              <td><input type="number" [(ngModel)]="row.fat" /></td>
+              <td class="cal-cell">{{ calculateCalories(row) }}</td>
+              <td>
+                <button type="button" class="row-remove" (click)="dietRows.splice(i, 1)">Remove</button>
+              </td>
+            </tr>
+          </tbody>
+
+          <tfoot>
+            <tr>
+              <td colspan="7" class="total-label">Total Calories</td>
+              <td class="total-value">{{ totalCalories }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="bottom-actions" *ngIf="dietRows.length > 0">
+        <button type="button" class="btn btn-secondary" (click)="addRow()">+ Add Row</button>
+
+        <div class="right-actions">
+          <button class="btn btn-primary" (click)="save()" [disabled]="loading">
+            {{ loading ? 'Saving...' : 'Save Diet Plan' }}
+          </button>
+          <button type="button" class="btn btn-danger" (click)="deletePlan()" [disabled]="loading">
+            Delete Diet Plan
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div *ngIf="error" class="error-card">
+    {{ error }}
+  </div>
+</div>

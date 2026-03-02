@@ -1,0 +1,40 @@
+<div class="login-container">
+  <div class="login-shell">
+    <section class="brand-panel">
+      <span class="brand-chip">Fitness Coach APP</span>
+      <h1>Coach Login</h1>
+      <p>Access your coaching dashboard to manage members, plans, and progress check-ins.</p>
+    </section>
+
+    <section class="form-panel">
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="login-form">
+        <h2>Welcome Back</h2>
+        <p class="subtitle">Sign in to continue</p>
+
+        <div class="field-group">
+          <label for="email">Email</label>
+          <input id="email" type="email" placeholder="coach@example.com" formControlName="email" />
+          <div class="field-error" *ngIf="form.controls.email.touched && form.controls.email.invalid">
+            Enter a valid email address.
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="password">Password</label>
+          <input id="password" type="password" placeholder="Enter your password" formControlName="password" />
+          <div class="field-error" *ngIf="form.controls.password.touched && form.controls.password.invalid">
+            Password is required.
+          </div>
+        </div>
+
+        <div class="error-banner" *ngIf="error">
+          {{ error }}
+        </div>
+
+        <button class="btn btn-primary login-btn" type="submit" [disabled]="loading">
+          {{ loading ? 'Signing in...' : 'Login' }}
+        </button>
+      </form>
+    </section>
+  </div>
+</div>
