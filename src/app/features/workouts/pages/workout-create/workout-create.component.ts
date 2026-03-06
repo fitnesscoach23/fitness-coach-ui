@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { WorkoutApiService } from '../../../../core/services/workout-api.service';
 import { MemberApiService } from '../../../../core/api/member-api.service';
+import { ExerciseLibraryApiService } from '../../../../core/api/exercise-library-api.service';
 import { of, Observable } from 'rxjs';
 import { concatMap, finalize, mapTo } from 'rxjs/operators';
 
@@ -12,6 +13,7 @@ interface WorkoutGridRow {
   exerciseName: string;
   setNumber: number;
   reps: string;        // e.g. "8-10"
+  videoUrl: string;
 }
 
 @Component({
@@ -47,22 +49,26 @@ export class WorkoutCreateComponent implements OnInit {
   // phase-5 state
 deletingPlanId: string | null = null;
 mode: 'VIEW' | 'EDIT' = 'VIEW';
-// create mode
+  // create mode
 creatingNewPlan = false;
 newPlanRows: WorkoutGridRow[] = [];
+exerciseLibraryItems: any[] = [];
+loadingExerciseLibraryItems = false;
 
 emptyRow(): WorkoutGridRow {
   return {
     dayName: '',
     exerciseName: '',
     setNumber: 1,
-    reps: ''
+    reps: '',
+    videoUrl: ''
   };
 }
 
   constructor(
     private workoutApi: WorkoutApiService,
     private memberApi: MemberApiService,
+    private exerciseLibraryApi: ExerciseLibraryApiService,
     private router: Router,
     private route: ActivatedRoute
   ) {}
@@ -70,6 +76,7 @@ emptyRow(): WorkoutGridRow {
 
   ngOnInit() {
     this.loadMembers();
+    this.loadExerciseLibraryItems();
 
     // optional preselect from query param
     const preselectedMemberId =
@@ -78,6 +85,22 @@ emptyRow(): WorkoutGridRow {
     if (preselectedMemberId) {
       this.memberId = preselectedMemberId;
     }
+  }
+
+  loadExerciseLibraryItems() {
+    this.loadingExerciseLibraryItems = true;
+
+    this.exerciseLibraryApi.getExercises().subscribe({
+      next: (res: any[]) => {
+        this.exerciseLibraryItems = [...(res || [])].sort((a, b) =>
+          String(a?.exerciseName || '').localeCompare(String(b?.exerciseName || ''))
+        );
+        this.loadingExerciseLibraryItems = false;
+      },
+      error: () => {
+        this.loadingExerciseLibraryItems = false;
+      }
+    });
   }
 
   loadMembers() {
@@ -170,7 +193,8 @@ addEmptyRow() {
     dayName: '',
     exerciseName: '',
     setNumber: this.nextSetNumber(),
-    reps: ''
+    reps: '',
+    videoUrl: ''
   });
 }
 
@@ -194,7 +218,8 @@ private mapPlanToGrid(plan: any) {
           dayName: day.dayName,
           exerciseName: ex.name,
           setNumber: set.setNumber,
-          reps: set.reps?.toString() ?? ''
+          reps: set.reps?.toString() ?? '',
+          videoUrl: ex.videoUrl || ''
         });
       });
     });
@@ -217,7 +242,8 @@ private mapPlanToGridLocal(plan: any): WorkoutGridRow[] {
           dayName: day.dayName,
           exerciseName: ex.name,
           setNumber: set.setNumber,
-          reps: set.reps?.toString() ?? ''
+          reps: set.reps?.toString() ?? '',
+          videoUrl: ex.videoUrl || ''
         });
       });
     });
@@ -245,14 +271,15 @@ private validateGrid(rows: WorkoutGridRow[]): boolean {
     r.dayName?.trim() &&
     r.exerciseName?.trim() &&
     r.setNumber != null &&
-    r.reps?.trim()
+    r.reps?.trim() &&
+    this.isValidOptionalVideoUrl(r.videoUrl)
   );
 }
 
 private groupGrid(rows: WorkoutGridRow[]) {
   const dayMap = new Map<
     string,
-    Map<string, WorkoutGridRow[]>
+    Map<string, { exerciseName: string; videoUrl: string; rows: WorkoutGridRow[] }>
   >();
 
   rows.forEach(row => {
@@ -261,12 +288,21 @@ private groupGrid(rows: WorkoutGridRow[]) {
     }
 
     const exMap = dayMap.get(row.dayName)!;
+    const normalizedVideoUrl = this.normalizeVideoUrl(row.videoUrl);
+    const exerciseKey = `${row.exerciseName}__${normalizedVideoUrl}`;
 
-    if (!exMap.has(row.exerciseName)) {
-      exMap.set(row.exerciseName, []);
+    if (!exMap.has(exerciseKey)) {
+      exMap.set(exerciseKey, {
+        exerciseName: row.exerciseName,
+        videoUrl: normalizedVideoUrl,
+        rows: []
+      });
     }
 
-    exMap.get(row.exerciseName)!.push(row);
+    exMap.get(exerciseKey)!.rows.push({
+      ...row,
+      videoUrl: normalizedVideoUrl
+    });
   });
 
   return dayMap;
@@ -317,14 +353,15 @@ delete$
 
             let exChain$: Observable<void> = of(void 0);
 
-            exerciseMap.forEach((sets, exerciseName) => {
+            exerciseMap.forEach(({ rows: sets, exerciseName, videoUrl }) => {
 
               exChain$ = exChain$.pipe(
 
                 // CREATE EXERCISE (KEEP exerciseId)
                 concatMap(() =>
                   this.workoutApi.addExerciseToDay(dayId, {
-                    name: exerciseName
+                    name: exerciseName,
+                    videoUrl
                   })
                 ),
 
@@ -484,13 +521,14 @@ private rebuildPlanFromGrid(
 
         let exChain$: Observable<void> = of(void 0);
 
-        exerciseMap.forEach((sets, exerciseName) => {
+        exerciseMap.forEach(({ rows: sets, exerciseName, videoUrl }) => {
 
           exChain$ = exChain$.pipe(
 
             concatMap(() =>
               this.workoutApi.addExerciseToDay(dayId, {
-                name: exerciseName
+                name: exerciseName,
+                videoUrl
               })
             ),
 
@@ -535,7 +573,8 @@ addRowToPlan(plan: any) {
     dayName: '',
     exerciseName: '',
     setNumber: this.nextSetNumberFromPlan(plan),
-    reps: ''
+    reps: '',
+    videoUrl: ''
   });
 }
 
@@ -545,5 +584,35 @@ private nextSetNumberFromPlan(plan: any): number {
   return max + 1;
 }
 
+normalizeVideoUrl(url: string | null | undefined): string {
+  const trimmed = (url || '').trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+onExerciseInput(row: WorkoutGridRow) {
+  this.applyExerciseLibraryByName(row);
+}
+
+applyExerciseLibraryByName(row: WorkoutGridRow) {
+  const typed = row.exerciseName?.trim().toLowerCase();
+  if (!typed) return;
+
+  const match = this.exerciseLibraryItems.find(
+    (ex: any) => String(ex?.exerciseName || '').trim().toLowerCase() === typed
+  );
+
+  if (!match) return;
+
+  row.exerciseName = match.exerciseName || row.exerciseName;
+  row.videoUrl = this.normalizeVideoUrl(match.videoUrl || '');
+}
+
+private isValidOptionalVideoUrl(url: string | null | undefined): boolean {
+  const normalized = this.normalizeVideoUrl(url);
+  if (!normalized) return true;
+  return /^(https?:\/\/)[^\s]+$/i.test(normalized);
+}
 
 }

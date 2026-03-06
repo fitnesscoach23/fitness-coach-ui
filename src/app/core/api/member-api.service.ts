@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 
+export type MemberStatus = 'ACTIVE' | 'INACTIVE';
+
 @Injectable({
   providedIn: 'root'
 })
@@ -32,6 +34,13 @@ updateMember(memberId: string, payload: any) {
   return this.http.put(
     `${environment.memberApi}/members/${memberId}`,
     payload
+  );
+}
+
+patchMemberStatus(memberId: string, status: MemberStatus) {
+  return this.http.patch(
+    `${environment.memberApi}/members/${memberId}/status`,
+    { status }
   );
 }
 

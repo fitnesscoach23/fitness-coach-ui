@@ -26,6 +26,7 @@ type OverviewSection = { title: string; items: OverviewField[] };
   styleUrls: ['./member-profile.component.scss']
 })
 export class MemberProfileComponent implements OnInit {
+  private readonly expirySoonDays = 7;
 
   member: any = null;
   loading = true;
@@ -72,6 +73,11 @@ export class MemberProfileComponent implements OnInit {
   avgDietAdherence = 0;
   avgEnergy = 0;
   deletingMember = false;
+  overrideActiveSince = '';
+  overrideRenewalDate = '';
+  overrideCycle: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' = 'MONTHLY';
+  autoCalculateRenewal = true;
+  overrideMessage: string | null = null;
   readonly overviewSections: OverviewSection[] = [
     {
       title: 'Identity',
@@ -290,6 +296,7 @@ removeMeasurement(index: number) {
   this.memberApi.getMemberById(id).subscribe({
     next: (res: any) => {
       this.member = res;
+      this.loadSubscriptionOverride();
       this.loading = false;
       this.loadSubscription();
       this.loadCheckins();
@@ -331,6 +338,12 @@ loadSubscription() {
 
       // API returns array → take first
       this.subscription = res?.length ? res[0] : null;
+      if (!this.overrideActiveSince && this.subscription?.startDate) {
+        this.overrideActiveSince = this.normalizeDateInput(this.subscription.startDate);
+      }
+      if (!this.overrideRenewalDate && this.subscription?.endDate) {
+        this.overrideRenewalDate = this.normalizeDateInput(this.subscription.endDate);
+      }
 
       this.subscriptionLoading = false;
       this.loadPayments();
@@ -339,6 +352,139 @@ loadSubscription() {
       this.subscriptionLoading = false;
     }
   });
+}
+
+get displayedActiveSince(): string {
+  return this.overrideActiveSince || this.subscription?.startDate || '-';
+}
+
+get displayedRenewalDate(): string {
+  return this.overrideRenewalDate || this.subscription?.endDate || '-';
+}
+
+get renewalDaysRemaining(): number | null {
+  if (!this.displayedRenewalDate || this.displayedRenewalDate === '-') return null;
+
+  const renewal = new Date(`${this.displayedRenewalDate.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(renewal.getTime())) return null;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffMs = renewal.getTime() - today.getTime();
+
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+}
+
+get renewalDaysRemainingLabel(): string {
+  const days = this.renewalDaysRemaining;
+  if (days == null) return '-';
+  if (days < 0) return `${Math.abs(days)} day(s) overdue`;
+  if (days === 0) return 'Due today';
+  return `${days} day(s) left`;
+}
+
+get memberExpiringSoon(): boolean {
+  const days = this.renewalDaysRemaining;
+  return days != null && days >= 0 && days <= this.expirySoonDays;
+}
+
+get memberExpired(): boolean {
+  const days = this.renewalDaysRemaining;
+  return days != null && days < 0;
+}
+
+onOverrideActiveSinceChange() {
+  if (this.autoCalculateRenewal) {
+    this.applyCycleToRenewal();
+  }
+}
+
+onOverrideCycleChange() {
+  if (this.autoCalculateRenewal) {
+    this.applyCycleToRenewal();
+  }
+}
+
+saveSubscriptionOverride() {
+  this.overrideMessage = null;
+
+  if (!this.overrideActiveSince) {
+    this.overrideMessage = 'Active Since is required';
+    return;
+  }
+
+  if (this.autoCalculateRenewal) {
+    this.applyCycleToRenewal();
+  }
+
+  if (!this.overrideRenewalDate) {
+    this.overrideMessage = 'Renewal Date is required';
+    return;
+  }
+
+  const payload = {
+    activeSince: this.overrideActiveSince,
+    renewalDate: this.overrideRenewalDate,
+    cycle: this.overrideCycle,
+    autoCalculate: this.autoCalculateRenewal
+  };
+
+  localStorage.setItem(this.getOverrideStorageKey(), JSON.stringify(payload));
+  this.overrideMessage = 'Subscription override saved';
+}
+
+clearSubscriptionOverride() {
+  localStorage.removeItem(this.getOverrideStorageKey());
+  this.overrideMessage = 'Subscription override cleared';
+  this.overrideCycle = 'MONTHLY';
+  this.autoCalculateRenewal = true;
+  this.overrideActiveSince = this.subscription?.startDate
+    ? this.normalizeDateInput(this.subscription.startDate)
+    : '';
+  this.overrideRenewalDate = this.subscription?.endDate
+    ? this.normalizeDateInput(this.subscription.endDate)
+    : '';
+}
+
+private applyCycleToRenewal() {
+  if (!this.overrideActiveSince) return;
+
+  const cycleMonths =
+    this.overrideCycle === 'MONTHLY'
+      ? 1
+      : this.overrideCycle === 'QUARTERLY'
+      ? 3
+      : 12;
+
+  const start = new Date(`${this.overrideActiveSince}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return;
+  start.setMonth(start.getMonth() + cycleMonths);
+  this.overrideRenewalDate = start.toISOString().slice(0, 10);
+}
+
+private getOverrideStorageKey() {
+  return `member_subscription_override_${this.member?.id}`;
+}
+
+private loadSubscriptionOverride() {
+  const raw = localStorage.getItem(this.getOverrideStorageKey());
+  if (!raw) return;
+
+  try {
+    const parsed = JSON.parse(raw);
+    this.overrideActiveSince = parsed.activeSince || '';
+    this.overrideRenewalDate = parsed.renewalDate || '';
+    this.overrideCycle = parsed.cycle || 'MONTHLY';
+    this.autoCalculateRenewal = parsed.autoCalculate ?? true;
+  } catch {
+    // ignore invalid local storage payload
+  }
+}
+
+private normalizeDateInput(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString().slice(0, 10);
 }
 
 loadPayments() {
@@ -796,8 +942,10 @@ exportWorkoutPlanToExcel() {
   }
 
   const dateLabel = new Intl.DateTimeFormat('en-GB').format(new Date());
+  const videoCells: Array<{ rowIndex: number; colIndex: number; url: string }> = [];
   const rows: any[][] = [
     [`Exercise Plan for ${this.member?.fullName || 'Member'} (${dateLabel})`],
+    [`Notes: ${this.activeWorkoutPlan?.notes?.trim() || '-'}`],
     ['Daily 10 mins General Warmup + 1-2 light sets of first exercise'],
     ['Section', 'Exercise', 'Sets', 'Reps', 'Video']
   ];
@@ -809,27 +957,53 @@ exportWorkoutPlanToExcel() {
 
     rows.push([day.dayName || `Day ${dayIndex + 1}`, '', '', '', '']);
 
-    (day.exercises || []).forEach((exercise: any, exIndex: number) => {
-      const sets = exercise.sets || [];
-      const repsValues = sets
+    const groupedExercises = this.groupExercisesForExport(day.exercises || []);
+
+    groupedExercises.forEach((exercise, exIndex) => {
+      const repsValues = exercise.sets
         .map((s: any) => s?.reps)
         .filter((v: any) => v != null && v !== '');
       const uniqueReps = Array.from(new Set(repsValues));
+      const numericSetNumbers = exercise.sets
+        .map((s: any) => Number(s?.setNumber))
+        .filter((n: number) => Number.isFinite(n) && n > 0);
+      const derivedSetCount = numericSetNumbers.length
+        ? Math.max(...numericSetNumbers)
+        : exercise.sets.length;
 
       rows.push([
         exIndex + 1,
         exercise.name || '',
-        sets.length || '',
+        derivedSetCount || '',
         uniqueReps.length === 1 ? uniqueReps[0] : uniqueReps.join(', '),
-        exercise.videoUrl || ''
+        exercise.videoUrl ? 'Open Video' : ''
       ]);
+
+      if (exercise.videoUrl) {
+        videoCells.push({
+          rowIndex: rows.length - 1,
+          colIndex: 4,
+          url: exercise.videoUrl
+        });
+      }
     });
   });
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  videoCells.forEach(({ rowIndex, colIndex, url }) => {
+    const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+    ws[cellRef] = {
+      t: 's',
+      v: 'Open Video',
+      l: { Target: url, Tooltip: 'Open workout video' }
+    };
+  });
+
   ws['!merges'] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } }
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: 4 } }
   ];
   ws['!cols'] = [
     { wch: 16 },
@@ -843,6 +1017,36 @@ exportWorkoutPlanToExcel() {
   XLSX.utils.book_append_sheet(wb, ws, 'Sheet 1');
   const fileName = `Exercise-Plan-${(this.member?.fullName || 'Member').replace(/\s+/g, '-')}.xlsx`;
   XLSX.writeFile(wb, fileName);
+}
+
+private groupExercisesForExport(exercises: any[]): Array<{ name: string; videoUrl: string | null; sets: any[] }> {
+  const grouped = new Map<string, { name: string; videoUrl: string | null; sets: any[] }>();
+
+  (exercises || []).forEach((exercise: any) => {
+    const name = (exercise?.name || '').trim();
+    const videoUrl = this.getWorkoutVideoUrl(exercise);
+    const key = `${name}__${videoUrl || ''}`;
+
+    if (!grouped.has(key)) {
+      grouped.set(key, { name, videoUrl, sets: [] });
+    }
+
+    const bucket = grouped.get(key)!;
+    const sets = Array.isArray(exercise?.sets) ? exercise.sets : [];
+    bucket.sets.push(...sets);
+  });
+
+  return Array.from(grouped.values()).map((item) => ({
+    ...item,
+    sets: item.sets.sort((a: any, b: any) => (a?.setNumber || 0) - (b?.setNumber || 0))
+  }));
+}
+
+getWorkoutVideoUrl(exercise: any): string | null {
+  const raw = (exercise?.videoUrl || '').trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
 }
 
 exportDietPlanToExcel() {

@@ -78,11 +78,29 @@ export const routes: Routes = [
             import('./features/diet/pages/diet-create/diet-create.component')
             .then(m => m.DietCreateComponent)
         },
-        {
+      {
         path: 'checkins/create',
         loadComponent: () =>
             import('./features/checkin/pages/checkin-create/checkin-create.component')
             .then(m => m.CheckinCreateComponent)
+        },
+      {
+        path: 'billing',
+        loadComponent: () =>
+            import('./features/billing/pages/billing-home/billing-home.component')
+            .then(m => m.BillingHomeComponent)
+        },
+      {
+        path: 'exercise-library',
+        loadComponent: () =>
+            import('./features/exercise-library/pages/exercise-library-home/exercise-library-home.component')
+            .then(m => m.ExerciseLibraryHomeComponent)
+        },
+      {
+        path: 'diet-library',
+        loadComponent: () =>
+            import('./features/diet-library/pages/diet-library-home/diet-library-home.component')
+            .then(m => m.DietLibraryHomeComponent)
         }
 
         // {

@@ -82,7 +82,7 @@ addWorkoutDay(planId: string, payload: { dayName: string }) {
 
 addExerciseToDay(
   dayId: string,
-  payload: { name: string; notes?: string }
+  payload: { name: string; notes?: string; videoUrl?: string }
 ) {
   return this.http.post<string>(
     `${environment.workoutApi}/workouts/days/${dayId}/exercises`,

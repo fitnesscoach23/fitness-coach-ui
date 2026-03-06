@@ -10,8 +10,9 @@
   <div class="hero-right">
     <span
       class="status-badge"
-      *ngIf="subscription?.status === 'ACTIVE'">
-      Active
+      *ngIf="member?.status"
+      [class.inactive]="member.status === 'INACTIVE'">
+      {{ member.status }}
     </span>
 
     <button
@@ -40,7 +41,7 @@
   <div class="stat-item">
     <div class="stat-label">Active Since</div>
     <div class="stat-value">
-      {{ subscription?.startDate || '-' }}
+      {{ displayedActiveSince }}
     </div>
   </div>
 
@@ -54,7 +55,17 @@
   <div class="stat-item">
     <div class="stat-label">Renewal Date</div>
     <div class="stat-value">
-      {{ subscription?.endDate || '-' }}
+      {{ displayedRenewalDate }}
+    </div>
+  </div>
+
+  <div
+    class="stat-item"
+    [class.warning-stat]="memberExpiringSoon"
+    [class.danger-stat]="memberExpired">
+    <div class="stat-label">Days Remaining</div>
+    <div class="stat-value">
+      {{ renewalDaysRemainingLabel }}
     </div>
   </div>
 
@@ -159,12 +170,12 @@
 
       <div>
         <label>Start</label>
-        <span>{{ subscription.startDate }}</span>
+        <span>{{ displayedActiveSince }}</span>
       </div>
 
       <div>
         <label>End</label>
-        <span>{{ subscription.endDate }}</span>
+        <span>{{ displayedRenewalDate }}</span>
       </div>
 
     </div>
@@ -203,74 +214,37 @@
 
   <!-- ================= BILLING ================= -->
  <div *ngIf="activeSection === 'billing'" class="billing-layout">
-
-  <!-- ACTION CARDS -->
-  <div class="billing-actions">
-
-    <!-- Manual Payment -->
-    <div class="card">
-      <h3 class="card-title">Manual Payment</h3>
-
-      <div class="inline-form">
-        <input
-          type="number"
-          placeholder="Amount"
-          [(ngModel)]="paymentAmount" />
-
-        <button
-          (click)="startManualPayment()"
-          [disabled]="paymentActionLoading"
-          class="primary-btn">
-          {{ paymentActionLoading ? 'Processing...' : 'Start Payment' }}
-        </button>
-      </div>
-
-      <div *ngIf="paymentActionError" class="error">
-        {{ paymentActionError }}
-      </div>
-    </div>
-
-    <!-- Online Payment -->
-    <div class="card">
-      <h3 class="card-title">Online Payment</h3>
-
-      <div class="inline-form">
-        <input
-          type="number"
-          placeholder="Amount"
-          [(ngModel)]="onlineAmount" />
-
-        <button
-          (click)="startOnlinePayment()"
-          [disabled]="onlinePaymentLoading"
-          class="primary-btn">
-          {{ onlinePaymentLoading ? 'Processing...' : 'Start Online Payment' }}
-        </button>
-      </div>
-
-      <div *ngIf="onlinePaymentError" class="error">
-        {{ onlinePaymentError }}
-      </div>
-    </div>
-
-  </div>
-  
   <div class="billing-summary">
+    <div class="summary-card">
+      <div class="summary-label">Renewal Date</div>
+      <div class="summary-value">{{ displayedRenewalDate }}</div>
+    </div>
 
-  <div class="summary-card">
-    <div class="summary-label">Total Paid</div>
-    <div class="summary-value">₹ {{ totalPaid }}</div>
+    <div
+      class="summary-card"
+      [class.pending-card]="memberExpiringSoon"
+      [class.overdue-card]="memberExpired">
+      <div class="summary-label">Days Remaining</div>
+      <div class="summary-value">{{ renewalDaysRemainingLabel }}</div>
+    </div>
+
+    <div class="summary-card pending-card">
+      <div class="summary-label">Pending Due</div>
+      <div class="summary-value">₹ {{ totalPending }}</div>
+    </div>
+
+    <div class="summary-card">
+      <div class="summary-label">Total Paid</div>
+      <div class="summary-value">₹ {{ totalPaid }}</div>
+    </div>
   </div>
 
-  <div class="summary-card pending-card">
-    <div class="summary-label">Pending</div>
-    <div class="summary-value">₹ {{ totalPending }}</div>
+  <div class="card billing-shortcut-card">
+    <h3 class="card-title">Need to manage billing?</h3>
+    <p>Use the central Billing console to create payments, confirm dues, and apply subscription overrides.</p>
+    <button class="primary-btn" routerLink="/billing">Open Billing Console</button>
   </div>
 
-</div>
-
-<hr class="section-divider">
-  <!-- PAYMENT HISTORY -->
   <div class="card">
 
     <h3 class="card-title">Payment History</h3>
@@ -284,7 +258,6 @@
           <th>Amount</th>
           <th>Status</th>
           <th>Method</th>
-          <th></th>
         </tr>
       </thead>
 
@@ -303,14 +276,6 @@
             </span>
           </td>
           <td>{{ p.mode }}</td>
-          <td>
-            <button
-              *ngIf="p.status === 'PENDING' && p.mode === 'MANUAL'"
-              (click)="confirmPayment(p.id)"
-              class="secondary-btn">
-              Confirm
-            </button>
-          </td>
         </tr>
       </tbody>
     </table>
@@ -320,7 +285,6 @@
     </div>
 
   </div>
-
 </div>
   <!-- ================= PROGRESS ================= -->
    <div class="progress-summary" *ngIf="activeSection === 'progress' && progressCheckins.length">
@@ -424,6 +388,12 @@
   <!-- Active Plan -->
 <div *ngIf="activeWorkoutPlan" class="active-plan">
   <h3 class="plan-title">{{ activeWorkoutPlan.title }}</h3>
+  <p class="plan-notes" *ngIf="activeWorkoutPlan.notes">
+    {{ activeWorkoutPlan.notes }}
+  </p>
+  <p class="plan-notes muted" *ngIf="!activeWorkoutPlan.notes">
+    No additional notes.
+  </p>
 
   <div *ngFor="let day of activeWorkoutPlan.days" class="day-card">
 
@@ -434,6 +404,7 @@
       <div>Exercise</div>
       <div>Set</div>
       <div>Reps</div>
+      <div>Video URL</div>
     </div>
 
     <!-- Exercise Rows -->
@@ -443,6 +414,16 @@
         <div class="exercise-col">{{ ex.name }}</div>
         <div>{{ s.setNumber }}</div>
         <div>{{ s.reps }}</div>
+        <div>
+          <a
+            *ngIf="getWorkoutVideoUrl(ex) as videoUrl; else noWorkoutVideo"
+            [href]="videoUrl"
+            target="_blank"
+            rel="noopener noreferrer">
+            Open Video
+          </a>
+          <ng-template #noWorkoutVideo>-</ng-template>
+        </div>
       </div>
 
     </div>

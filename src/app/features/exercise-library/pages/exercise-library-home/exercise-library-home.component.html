@@ -1,0 +1,101 @@
+<div class="exercise-library-page">
+  <section class="hero-card">
+    <h1>Exercise Library</h1>
+    <p>Import exercises from Excel, then manage them with add/edit/delete.</p>
+
+    <div class="import-row">
+      <label class="upload-btn" for="excelUpload">
+        {{ importing ? 'Importing...' : 'Import From Excel' }}
+      </label>
+      <input
+        id="excelUpload"
+        type="file"
+        accept=".xlsx,.xls"
+        (change)="onExcelSelected($event)"
+        [disabled]="importing" />
+
+      <span class="import-message" *ngIf="importMessage">{{ importMessage }}</span>
+    </div>
+  </section>
+
+  <section class="card form-card">
+    <h2>{{ form.id ? 'Edit Exercise' : 'Add Exercise' }}</h2>
+
+    <div class="form-grid">
+      <div class="field-group">
+        <label for="srNo">Sr No</label>
+        <input id="srNo" type="number" [(ngModel)]="form.srNo" placeholder="1" />
+      </div>
+
+      <div class="field-group">
+        <label for="muscleGroup">Muscle Group</label>
+        <input id="muscleGroup" [(ngModel)]="form.muscleGroup" placeholder="CHEST" />
+      </div>
+
+      <div class="field-group">
+        <label for="exerciseName">Exercise Name</label>
+        <input id="exerciseName" [(ngModel)]="form.exerciseName" placeholder="Flat Bench Barbell Press" />
+      </div>
+
+      <div class="field-group">
+        <label for="videoUrl">Video URL</label>
+        <input id="videoUrl" [(ngModel)]="form.videoUrl" placeholder="https://..." />
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button class="btn btn-primary" (click)="submitExercise()" [disabled]="savingExercise">
+        {{ savingExercise ? 'Saving...' : (form.id ? 'Update Exercise' : 'Create Exercise') }}
+      </button>
+      <button class="btn btn-secondary" (click)="resetForm()" [disabled]="savingExercise">Reset</button>
+      <span class="error" *ngIf="formError">{{ formError }}</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div *ngIf="loadingExercises" class="state-card">Loading library...</div>
+    <div *ngIf="error" class="state-card error-state">{{ error }}</div>
+
+    <div *ngIf="!loadingExercises && exercises.length === 0" class="state-card">
+      No exercises found. Import an Excel file to populate the table.
+    </div>
+
+    <div class="table-wrap" *ngIf="!loadingExercises && exercises.length > 0">
+      <table class="library-grid">
+        <thead>
+          <tr>
+            <th>Sr No</th>
+            <th>Muscle Group</th>
+            <th>Exercise Name</th>
+            <th>Video URL</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let ex of exercises">
+            <td>{{ ex.srNo }}</td>
+            <td>{{ ex.muscleGroup }}</td>
+            <td>{{ ex.exerciseName }}</td>
+            <td>
+              <a
+                *ngIf="ex.videoUrl"
+                [href]="normalizeVideoUrl(ex.videoUrl)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="video-link">
+                Open
+              </a>
+              <span *ngIf="!ex.videoUrl">-</span>
+            </td>
+            <td class="actions-cell">
+              <button class="btn btn-secondary" (click)="editExercise(ex)">Edit</button>
+              <button class="btn btn-danger" (click)="deleteExercise(ex.id)" [disabled]="deletingExerciseId === ex.id">
+                {{ deletingExerciseId === ex.id ? 'Deleting...' : 'Delete' }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

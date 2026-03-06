@@ -56,6 +56,8 @@
             <span class="dot">•</span>
             <span>{{ p.gridRows?.length || 0 }} rows</span>
           </p>
+          <p class="plan-notes" *ngIf="p.notes">{{ p.notes }}</p>
+          <p class="plan-notes muted" *ngIf="!p.notes">No additional notes.</p>
         </div>
 
         <div class="plan-actions">
@@ -111,6 +113,7 @@
               <th>Exercise</th>
               <th>Set</th>
               <th>Reps</th>
+              <th>Video URL</th>
               <th *ngIf="editablePlanId === p.id"></th>
             </tr>
           </thead>
@@ -121,13 +124,29 @@
                 <input [(ngModel)]="row.dayName" [disabled]="editablePlanId !== p.id" />
               </td>
               <td>
-                <input [(ngModel)]="row.exerciseName" [disabled]="editablePlanId !== p.id" />
+                <input
+                  [(ngModel)]="row.exerciseName"
+                  [attr.list]="'exercise-library-options'"
+                  (input)="onExerciseInput(row)"
+                  (blur)="applyExerciseLibraryByName(row)"
+                  [disabled]="editablePlanId !== p.id" />
               </td>
               <td>
                 <input type="number" [(ngModel)]="row.setNumber" [disabled]="editablePlanId !== p.id" />
               </td>
               <td>
                 <input [(ngModel)]="row.reps" [disabled]="editablePlanId !== p.id" />
+              </td>
+              <td class="video-col">
+                <input [(ngModel)]="row.videoUrl" [disabled]="editablePlanId !== p.id" placeholder="https://..." />
+                <a
+                  *ngIf="row.videoUrl"
+                  class="video-link"
+                  [href]="normalizeVideoUrl(row.videoUrl)"
+                  target="_blank"
+                  rel="noopener noreferrer">
+                  Open
+                </a>
               </td>
               <td *ngIf="editablePlanId === p.id">
                 <button type="button" class="row-remove" (click)="removeRowFromPlan(p, i)">Remove</button>
@@ -149,11 +168,14 @@
         <label for="planTitle">Plan Title</label>
         <input id="planTitle" [(ngModel)]="title" placeholder="e.g. 4-Day Hypertrophy Block" />
       </div>
+    </div>
 
-      <div class="field-group notes-field">
-        <label for="planNotes">Notes</label>
-        <textarea id="planNotes" [(ngModel)]="notes" placeholder="Goals, constraints, progression cues"></textarea>
-      </div>
+    <div class="notes-panel">
+      <label for="planNotes">Additional Notes</label>
+      <textarea
+        id="planNotes"
+        [(ngModel)]="notes"
+        placeholder="Goals, constraints, progression cues, warmup focus, technique reminders"></textarea>
     </div>
 
     <div class="table-wrap">
@@ -164,6 +186,7 @@
             <th>Exercise</th>
             <th>Set</th>
             <th>Reps</th>
+            <th>Video URL</th>
             <th></th>
           </tr>
         </thead>
@@ -171,9 +194,26 @@
         <tbody>
           <tr *ngFor="let row of newPlanRows; let i = index">
             <td><input [(ngModel)]="row.dayName" /></td>
-            <td><input [(ngModel)]="row.exerciseName" /></td>
+            <td>
+              <input
+                [(ngModel)]="row.exerciseName"
+                [attr.list]="'exercise-library-options'"
+                (input)="onExerciseInput(row)"
+                (blur)="applyExerciseLibraryByName(row)" />
+            </td>
             <td><input type="number" [(ngModel)]="row.setNumber" /></td>
             <td><input [(ngModel)]="row.reps" /></td>
+            <td class="video-col">
+              <input [(ngModel)]="row.videoUrl" placeholder="https://..." />
+              <a
+                *ngIf="row.videoUrl"
+                class="video-link"
+                [href]="normalizeVideoUrl(row.videoUrl)"
+                target="_blank"
+                rel="noopener noreferrer">
+                Open
+              </a>
+            </td>
             <td>
               <button type="button" class="row-remove" (click)="newPlanRows.splice(i, 1)">Remove</button>
             </td>
@@ -201,4 +241,10 @@
   <div *ngIf="error" class="error-card">
     {{ error }}
   </div>
+
+  <datalist id="exercise-library-options">
+    <option *ngFor="let ex of exerciseLibraryItems" [value]="ex.exerciseName">
+      {{ ex.muscleGroup }} | {{ ex.exerciseName }}
+    </option>
+  </datalist>
 </div>

@@ -32,11 +32,14 @@
         <label for="dietTitle">Plan Title</label>
         <input id="dietTitle" placeholder="e.g. Fat Loss Phase 1" [(ngModel)]="title" />
       </div>
+    </div>
 
-      <div class="field-group notes-field">
-        <label for="dietNotes">Notes</label>
-        <textarea id="dietNotes" placeholder="Coach notes, meal timing, restrictions" [(ngModel)]="notes"></textarea>
-      </div>
+    <div class="notes-panel">
+      <label for="dietNotes">Additional Notes</label>
+      <textarea
+        id="dietNotes"
+        placeholder="Coach notes, meal timing, hydration targets, food restrictions, special instructions"
+        [(ngModel)]="notes"></textarea>
     </div>
 
     <div *ngIf="!hasPlan" class="state-inline">
@@ -74,13 +77,25 @@
           <tbody>
             <tr *ngFor="let row of dietRows; let i = index">
               <td><input [(ngModel)]="row.mealType" /></td>
-              <td><input [(ngModel)]="row.foodName" /></td>
-              <td><input type="number" [(ngModel)]="row.quantity" /></td>
+              <td class="food-cell">
+                <input
+                  [(ngModel)]="row.foodName"
+                  [attr.list]="'diet-library-foods'"
+                  (input)="onFoodNameInput(row)"
+                  (blur)="applyLibraryFoodByName(row)"
+                  placeholder="Type to search from Diet Library" />
+                <datalist id="diet-library-foods">
+                  <option *ngFor="let f of dietLibraryFoods" [value]="f.foodItem">
+                    {{ f.category }} | Cal {{ f.calories }} | C {{ f.carbs }} | P {{ f.protein }} | F {{ f.fats }}
+                  </option>
+                </datalist>
+              </td>
+              <td><input type="number" [(ngModel)]="row.quantity" (ngModelChange)="onQuantityChanged(row)" /></td>
               <td><input [(ngModel)]="row.unit" /></td>
               <td><input type="number" [(ngModel)]="row.protein" /></td>
               <td><input type="number" [(ngModel)]="row.carbs" /></td>
               <td><input type="number" [(ngModel)]="row.fat" /></td>
-              <td class="cal-cell">{{ calculateCalories(row) }}</td>
+              <td class="cal-cell">{{ displayCalories(row) }}</td>
               <td>
                 <button type="button" class="row-remove" (click)="dietRows.splice(i, 1)">Remove</button>
               </td>

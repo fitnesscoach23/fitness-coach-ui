@@ -1,0 +1,121 @@
+<div class="diet-library-page">
+  <section class="hero-card">
+    <h1>Diet Library</h1>
+    <p>Import food items from Excel, filter by category, and manage macros with CRUD.</p>
+
+    <div class="top-row">
+      <div class="import-row">
+        <label class="upload-btn" for="dietExcelUpload">
+          {{ importing ? 'Importing...' : 'Import Foods From Excel' }}
+        </label>
+        <input
+          id="dietExcelUpload"
+          type="file"
+          accept=".xlsx,.xls"
+          (change)="onExcelSelected($event)"
+          [disabled]="importing" />
+
+        <span class="import-message" *ngIf="importMessage">{{ importMessage }}</span>
+      </div>
+
+      <div class="field-group filter-group">
+        <label for="categoryFilter">Category Filter</label>
+        <select
+          id="categoryFilter"
+          [(ngModel)]="selectedCategory"
+          (change)="onCategoryFilterChange()"
+          [disabled]="loadingCategories">
+          <option [ngValue]="null">All</option>
+          <option *ngFor="let c of categories" [ngValue]="c">{{ c }}</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <section class="card form-card">
+    <h2>{{ form.id ? 'Edit Food Item' : 'Add Food Item' }}</h2>
+
+    <div class="form-grid">
+      <div class="field-group">
+        <label for="foodItem">Food Item</label>
+        <input id="foodItem" [(ngModel)]="form.foodItem" placeholder="Oats" />
+      </div>
+
+      <div class="field-group">
+        <label for="category">Category</label>
+        <select id="category" [(ngModel)]="form.category">
+          <option *ngFor="let c of canonicalCategories" [ngValue]="c">{{ c }}</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label for="calories">Calories</label>
+        <input id="calories" type="number" min="0" [(ngModel)]="form.calories" />
+      </div>
+
+      <div class="field-group">
+        <label for="carbs">Carbs</label>
+        <input id="carbs" type="number" min="0" [(ngModel)]="form.carbs" />
+      </div>
+
+      <div class="field-group">
+        <label for="protein">Protein</label>
+        <input id="protein" type="number" min="0" [(ngModel)]="form.protein" />
+      </div>
+
+      <div class="field-group">
+        <label for="fats">Fats</label>
+        <input id="fats" type="number" min="0" [(ngModel)]="form.fats" />
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button class="btn btn-primary" (click)="submitFood()" [disabled]="savingFood">
+        {{ savingFood ? 'Saving...' : (form.id ? 'Update Food' : 'Create Food') }}
+      </button>
+      <button class="btn btn-secondary" (click)="resetForm()" [disabled]="savingFood">Reset</button>
+      <span class="error" *ngIf="formError">{{ formError }}</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div *ngIf="loadingFoods" class="state-card">Loading diet library...</div>
+    <div *ngIf="error" class="state-card error-state">{{ error }}</div>
+
+    <div *ngIf="!loadingFoods && foods.length === 0" class="state-card">
+      No food items found for current filter.
+    </div>
+
+    <div class="table-wrap" *ngIf="!loadingFoods && foods.length > 0">
+      <table class="library-grid">
+        <thead>
+          <tr>
+            <th>Food Item</th>
+            <th>Category</th>
+            <th>Calories</th>
+            <th>Carbs</th>
+            <th>Protein</th>
+            <th>Fats</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let f of foods">
+            <td>{{ f.foodItem }}</td>
+            <td>{{ f.category }}</td>
+            <td>{{ f.calories }}</td>
+            <td>{{ f.carbs }}</td>
+            <td>{{ f.protein }}</td>
+            <td>{{ f.fats }}</td>
+            <td class="actions-cell">
+              <button class="btn btn-secondary" (click)="editFood(f)">Edit</button>
+              <button class="btn btn-danger" (click)="deleteFood(f.id)" [disabled]="deletingFoodId === f.id">
+                {{ deletingFoodId === f.id ? 'Deleting...' : 'Delete' }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

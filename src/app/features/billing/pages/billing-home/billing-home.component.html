@@ -1,0 +1,267 @@
+<div class="billing-page">
+  <div class="page-header card">
+    <div>
+      <h1>Billing Console</h1>
+      <p>Track and maintain subscription + payments for all members in one place.</p>
+    </div>
+    <button class="secondary-btn" routerLink="/members">Go to Members</button>
+  </div>
+
+  <div *ngIf="membersError" class="state error">{{ membersError }}</div>
+
+  <div class="billing-layout" *ngIf="!membersLoading && !membersError">
+    <div class="card manager-card">
+      <h3 class="card-title">Manage Billing</h3>
+
+      <div class="manager-grid">
+        <div>
+          <label>Member</label>
+          <select [(ngModel)]="selectedMemberId" (ngModelChange)="onMemberChange()">
+            <option value="" disabled>Select member</option>
+            <option *ngFor="let m of members" [value]="m.id">
+              {{ m.fullName }} ({{ m.email }})
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label>Active Since</label>
+          <input
+            type="date"
+            [(ngModel)]="overrideActiveSince"
+            (ngModelChange)="onOverrideActiveSinceChange()" />
+        </div>
+
+        <div>
+          <label>Cycle</label>
+          <select [(ngModel)]="overrideCycle" (ngModelChange)="onOverrideCycleChange()">
+            <option value="MONTHLY">Monthly</option>
+            <option value="QUARTERLY">Quarterly</option>
+            <option value="YEARLY">Yearly</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Renewal Date</label>
+          <input
+            type="date"
+            [(ngModel)]="overrideRenewalDate"
+            [disabled]="autoCalculateRenewal" />
+        </div>
+      </div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" [(ngModel)]="autoCalculateRenewal" />
+        Auto-calculate renewal based on cycle
+      </label>
+
+      <div class="actions-row">
+        <button class="primary-btn" (click)="saveSubscriptionOverride()">Save Override</button>
+        <button class="secondary-btn" (click)="clearSubscriptionOverride()">Clear Override</button>
+      </div>
+
+      <div *ngIf="overrideMessage" class="info-text">{{ overrideMessage }}</div>
+
+      <hr class="section-divider" />
+
+      <div class="manager-grid compact-grid">
+        <div>
+          <label>Record Manual Payment</label>
+          <div class="inline-form">
+            <input type="number" placeholder="Amount" [(ngModel)]="paymentAmount" />
+            <button class="primary-btn" (click)="startManualPayment()" [disabled]="paymentActionLoading">
+              {{ paymentActionLoading ? 'Processing...' : 'Confirm' }}
+            </button>
+          </div>
+          <div *ngIf="paymentActionError" class="error">{{ paymentActionError }}</div>
+        </div>
+
+        <div>
+          <label>Online Payment Amount</label>
+          <div class="inline-form">
+            <input type="number" placeholder="Amount" [(ngModel)]="onlineAmount" />
+            <button class="primary-btn" (click)="startOnlinePayment()" [disabled]="onlinePaymentLoading">
+              {{ onlinePaymentLoading ? 'Processing...' : 'Start Online Payment' }}
+            </button>
+          </div>
+          <div *ngIf="onlinePaymentError" class="error">{{ onlinePaymentError }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card summary-card">
+      <h3 class="card-title">Selected Member Snapshot</h3>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <span class="stat-label">Member</span>
+          <strong>{{ selectedMember?.fullName || '-' }}</strong>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Plan</span>
+          <strong>{{ subscription?.planName || 'No Plan' }}</strong>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Renewal</span>
+          <strong>{{ formatDate(displayedRenewalDate) }}</strong>
+        </div>
+        <div
+          class="stat-box"
+          [class.soon]="isExpiringSoon(displayedRenewalDate)"
+          [class.expired]="isExpired(displayedRenewalDate)">
+          <span class="stat-label">Days Remaining</span>
+          <strong>{{ getDaysRemainingLabel(displayedRenewalDate) }}</strong>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Pending</span>
+          <strong>₹ {{ totalPending }}</strong>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Member Status</span>
+          <strong>
+            <span class="member-status-badge" [class.inactive]="selectedMemberSystemStatus === 'INACTIVE'">
+              {{ selectedMemberSystemStatus }}
+            </span>
+          </strong>
+        </div>
+      </div>
+
+      <div class="summary-actions">
+        <button
+          class="secondary-btn"
+          [disabled]="!selectedMemberId || memberStatusUpdating || selectedMemberSystemStatus === 'ACTIVE' || isExpired(displayedRenewalDate)"
+          (click)="setMemberStatus(selectedMemberId, 'ACTIVE')">
+          Mark Active
+        </button>
+        <button
+          class="secondary-btn"
+          [disabled]="!selectedMemberId || memberStatusUpdating || selectedMemberSystemStatus === 'INACTIVE'"
+          (click)="setMemberStatus(selectedMemberId, 'INACTIVE')">
+          Mark Inactive
+        </button>
+        <button
+          class="secondary-btn"
+          [disabled]="!selectedMemberId"
+          (click)="openMemberProfile(selectedMemberId)">
+          Open Member Profile
+        </button>
+      </div>
+    </div>
+
+    <div class="card full-width">
+      <h3 class="card-title">All Members Billing Tracker</h3>
+
+      <div *ngIf="billingRowsLoading" class="state">Loading tracker...</div>
+
+      <table *ngIf="!billingRowsLoading && billingRows.length" class="data-table">
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Plan</th>
+            <th>Status</th>
+            <th>Member</th>
+            <th>Renewal Date</th>
+            <th>Days Left</th>
+            <th>Pending</th>
+            <th>Total Paid</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            *ngFor="let row of billingRows; trackBy: trackByMemberId"
+            [class.expiring-soon-row]="isExpiringSoon(row.renewalDate)"
+            [class.expired-row]="isExpired(row.renewalDate)">
+            <td>
+              <div class="member-cell">
+                <strong>{{ row.fullName }}</strong>
+                <span>{{ row.email }}</span>
+              </div>
+            </td>
+            <td>{{ row.planName }}</td>
+            <td>
+              <span class="status-badge" [class.active]="row.status === 'ACTIVE'">
+                {{ row.status }}
+              </span>
+            </td>
+            <td>
+              <span class="member-status-badge" [class.inactive]="row.memberStatus === 'INACTIVE'">
+                {{ row.memberStatus }}
+              </span>
+            </td>
+            <td>{{ formatDate(row.renewalDate) }}</td>
+            <td>
+              <span
+                class="renewal-pill"
+                [class.soon]="isExpiringSoon(row.renewalDate)"
+                [class.expired]="isExpired(row.renewalDate)">
+                {{ getDaysRemainingLabel(row.renewalDate) }}
+              </span>
+            </td>
+            <td>₹ {{ row.totalPending }}</td>
+            <td>₹ {{ row.totalPaid }}</td>
+            <td>
+              <button
+                class="secondary-btn mini-btn"
+                [disabled]="memberStatusUpdating || row.memberStatus === 'ACTIVE' || !canActivateMember(row)"
+                (click)="setMemberStatus(row.id, 'ACTIVE')">
+                Active
+              </button>
+              <button
+                class="secondary-btn mini-btn"
+                [disabled]="memberStatusUpdating || row.memberStatus === 'INACTIVE'"
+                (click)="setMemberStatus(row.id, 'INACTIVE')">
+                Inactive
+              </button>
+              <button class="secondary-btn" (click)="selectedMemberId = row.id; onMemberChange()">
+                Manage
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div *ngIf="!billingRowsLoading && !billingRows.length" class="state">No members found.</div>
+    </div>
+
+    <div class="card full-width">
+      <h3 class="card-title">Payment History (Selected Member)</h3>
+
+      <div *ngIf="paymentsLoading" class="state">Loading payments...</div>
+
+      <table *ngIf="!paymentsLoading && payments.length" class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Method</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of payments; trackBy: trackByPaymentId">
+            <td>{{ formatDate(p.paymentDate) }}</td>
+            <td>₹ {{ p.amount }}</td>
+            <td>
+              <span class="payment-badge" [class.success]="p.status === 'SUCCESS'" [class.pending]="p.status === 'PENDING'">
+                {{ p.status }}
+              </span>
+            </td>
+            <td>{{ p.mode }}</td>
+            <td>
+              <button
+                *ngIf="p.status === 'PENDING' && p.mode === 'MANUAL'"
+                class="secondary-btn"
+                (click)="confirmPayment(p.id)">
+                Confirm
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div *ngIf="!paymentsLoading && !payments.length" class="state">No payment history found.</div>
+    </div>
+  </div>
+</div>
