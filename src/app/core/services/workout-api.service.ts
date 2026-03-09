@@ -46,6 +46,7 @@ saveExercise(
   exerciseId: string,
   payload: {
     name: string;
+    muscleGroup?: string;
     musclesTrained?: string;
     notes?: string;
     sets: Array<{
@@ -83,7 +84,7 @@ addWorkoutDay(planId: string, payload: { dayName: string }) {
 
 addExerciseToDay(
   dayId: string,
-  payload: { name: string; musclesTrained?: string; notes?: string; videoUrl?: string }
+  payload: { name: string; muscleGroup?: string; musclesTrained?: string; notes?: string; videoUrl?: string }
 ) {
   return this.http.post<string>(
     `${environment.workoutApi}/workouts/days/${dayId}/exercises`,

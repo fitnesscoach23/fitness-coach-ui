@@ -157,6 +157,72 @@
   border-radius: 12px;
 }
 
+.day-groups {
+  display: grid;
+  gap: 16px;
+}
+
+.day-group-card {
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  background: #fcfdff;
+  padding: 14px;
+}
+
+.empty-rows-card {
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.empty-rows-card p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.day-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.day-title-wrap {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.day-title-wrap label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.day-title-input {
+  max-width: 240px;
+}
+
+.day-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.add-day-btn {
+  justify-self: start;
+}
+
 .workout-grid {
   width: 100%;
   min-width: 1120px;
@@ -168,6 +234,7 @@
 .workout-grid td {
   border-bottom: 1px solid #eef2f7;
   padding: 10px;
+  vertical-align: top;
 }
 
 .workout-grid th {
@@ -219,6 +286,18 @@
   min-height: 88px;
 }
 
+.row-index {
+  width: 48px;
+  min-width: 48px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ghost-danger {
+  background: #fff;
+}
+
 .video-col {
   min-width: 220px;
 }
@@ -243,6 +322,50 @@
 
 .create-card {
   padding: 18px;
+}
+
+.volume-summary-card {
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.summary-header {
+  margin-bottom: 12px;
+}
+
+.summary-header h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.summary-header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.summary-grid {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.summary-grid th,
+.summary-grid td {
+  border-bottom: 1px solid #eef2f7;
+  padding: 10px;
+  vertical-align: top;
+}
+
+.summary-grid th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: #f8fafc;
 }
 
 .create-grid {
@@ -309,6 +432,10 @@
 
   .create-grid {
     grid-template-columns: 1fr;
+  }
+
+  .day-group-header {
+    align-items: stretch;
   }
 
 }

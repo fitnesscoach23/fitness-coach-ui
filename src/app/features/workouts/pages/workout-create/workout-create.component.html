@@ -105,64 +105,135 @@
         </div>
       </header>
 
-      <div class="table-wrap">
-        <table class="workout-grid">
-          <thead>
-            <tr>
-              <th>Day</th>
-              <th>Exercise</th>
-              <th>Muscles Trained</th>
-              <th>Set</th>
-              <th>Reps</th>
-              <th>Video URL</th>
-              <th *ngIf="editablePlanId === p.id"></th>
-            </tr>
-          </thead>
+      <div class="day-groups">
+        <section
+          class="day-group-card"
+          *ngFor="let group of getGroupedRows(p.gridRows); trackBy: trackByDayGroup">
+          <div class="day-group-header">
+            <div class="day-title-wrap">
+              <label>Day</label>
+              <input
+                class="day-title-input"
+                [ngModel]="group.dayName"
+                (ngModelChange)="updateDayName(p.gridRows, group.dayName, $event)"
+                [disabled]="editablePlanId !== p.id" />
+            </div>
 
-          <tbody>
-            <tr *ngFor="let row of p.gridRows; let i = index">
-              <td>
-                <input [(ngModel)]="row.dayName" [disabled]="editablePlanId !== p.id" />
-              </td>
-              <td>
-                <input
-                  [(ngModel)]="row.exerciseName"
-                  [attr.list]="'exercise-library-options'"
-                  (input)="onExerciseInput(row)"
-                  (blur)="applyExerciseLibraryByName(row)"
-                  [disabled]="editablePlanId !== p.id" />
-              </td>
-              <td>
-                <textarea
-                  class="muscles-textarea"
-                  [(ngModel)]="row.musclesTrained"
-                  [disabled]="editablePlanId !== p.id"
-                  rows="3"></textarea>
-              </td>
-              <td>
-                <input type="number" [(ngModel)]="row.setNumber" [disabled]="editablePlanId !== p.id" />
-              </td>
-              <td>
-                <input [(ngModel)]="row.reps" [disabled]="editablePlanId !== p.id" />
-              </td>
-              <td class="video-col">
-                <input [(ngModel)]="row.videoUrl" [disabled]="editablePlanId !== p.id" placeholder="https://..." />
-                <a
-                  *ngIf="row.videoUrl"
-                  class="video-link"
-                  [href]="normalizeVideoUrl(row.videoUrl)"
-                  target="_blank"
-                  rel="noopener noreferrer">
-                  Open
-                </a>
-              </td>
-              <td *ngIf="editablePlanId === p.id">
-                <button type="button" class="row-remove" (click)="removeRowFromPlan(p, i)">Remove</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+            <div class="day-actions" *ngIf="editablePlanId === p.id">
+              <button type="button" class="btn btn-secondary" (click)="addRowToDay(p.gridRows, group.dayName)">
+                + Add Row
+              </button>
+              <button type="button" class="btn btn-danger ghost-danger" (click)="removeDayFromRows(p.gridRows, group.dayName)">
+                Remove Day
+              </button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="workout-grid">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Exercise</th>
+                  <th>Muscle Group</th>
+                  <th>Muscles Trained</th>
+                  <th>Set</th>
+                  <th>Reps</th>
+                  <th>Video URL</th>
+                  <th *ngIf="editablePlanId === p.id"></th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr *ngFor="let row of group.rows; let i = index">
+                  <td class="row-index">{{ i + 1 }}</td>
+                  <td>
+                    <input
+                      [(ngModel)]="row.exerciseName"
+                      [attr.list]="'exercise-library-options'"
+                      (input)="onExerciseInput(row)"
+                      (blur)="applyExerciseLibraryByName(row)"
+                      [disabled]="editablePlanId !== p.id" />
+                  </td>
+                  <td>
+                    <input [(ngModel)]="row.muscleGroup" [disabled]="editablePlanId !== p.id" />
+                  </td>
+                  <td>
+                    <textarea
+                      class="muscles-textarea"
+                      [(ngModel)]="row.musclesTrained"
+                      [disabled]="editablePlanId !== p.id"
+                      rows="3"></textarea>
+                  </td>
+                  <td>
+                    <input type="number" [(ngModel)]="row.setNumber" [disabled]="editablePlanId !== p.id" />
+                  </td>
+                  <td>
+                    <input [(ngModel)]="row.reps" [disabled]="editablePlanId !== p.id" />
+                  </td>
+                  <td class="video-col">
+                    <input [(ngModel)]="row.videoUrl" [disabled]="editablePlanId !== p.id" placeholder="https://..." />
+                    <a
+                      *ngIf="row.videoUrl"
+                      class="video-link"
+                      [href]="normalizeVideoUrl(row.videoUrl)"
+                      target="_blank"
+                      rel="noopener noreferrer">
+                      Open
+                    </a>
+                  </td>
+                  <td *ngIf="editablePlanId === p.id">
+                    <button type="button" class="row-remove" (click)="removeRowFromRows(p.gridRows, row)">Remove</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="empty-rows-card" *ngIf="editablePlanId === p.id && !p.gridRows.length">
+          <p>No workout rows yet for this plan.</p>
+          <button type="button" class="btn btn-secondary" (click)="addDayToRows(p.gridRows)">
+            + Add First Day
+          </button>
+        </div>
+
+        <button
+          *ngIf="editablePlanId === p.id"
+          type="button"
+          class="btn btn-secondary add-day-btn"
+          (click)="addDayToRows(p.gridRows)">
+          + Add Day
+        </button>
       </div>
+
+      <section class="volume-summary-card" *ngIf="p.gridRows.length">
+        <div class="summary-header">
+          <h4>Muscle Group Volume Summary</h4>
+          <p>Total sets and frequency across the full plan.</p>
+        </div>
+
+        <div class="table-wrap" *ngIf="getMuscleGroupSummary(p.gridRows).length">
+          <table class="summary-grid">
+            <thead>
+              <tr>
+                <th>Muscle Group</th>
+                <th>Total Sets</th>
+                <th>Frequency</th>
+                <th>Day Split</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of getMuscleGroupSummary(p.gridRows)">
+                <td>{{ item.muscleGroup }}</td>
+                <td>{{ item.totalSets }}</td>
+                <td>{{ item.frequency }} time(s)</td>
+                <td>{{ item.dayBreakdown.join(' | ') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </article>
   </section>
 
@@ -186,60 +257,122 @@
         placeholder="Goals, constraints, progression cues, warmup focus, technique reminders"></textarea>
     </div>
 
-    <div class="table-wrap">
-      <table class="workout-grid">
-        <thead>
-          <tr>
-            <th>Day</th>
-            <th>Exercise</th>
-            <th>Muscles Trained</th>
-            <th>Set</th>
-            <th>Reps</th>
-            <th>Video URL</th>
-            <th></th>
-          </tr>
-        </thead>
+    <div class="day-groups">
+      <section
+        class="day-group-card"
+        *ngFor="let group of getGroupedRows(newPlanRows); trackBy: trackByDayGroup">
+        <div class="day-group-header">
+          <div class="day-title-wrap">
+            <label>Day</label>
+            <input
+              class="day-title-input"
+              [ngModel]="group.dayName"
+              (ngModelChange)="updateDayName(newPlanRows, group.dayName, $event)" />
+          </div>
 
-        <tbody>
-          <tr *ngFor="let row of newPlanRows; let i = index">
-            <td><input [(ngModel)]="row.dayName" /></td>
-            <td>
-              <input
-                [(ngModel)]="row.exerciseName"
-                [attr.list]="'exercise-library-options'"
-                (input)="onExerciseInput(row)"
-                (blur)="applyExerciseLibraryByName(row)" />
-            </td>
-            <td>
-              <textarea
-                class="muscles-textarea"
-                [(ngModel)]="row.musclesTrained"
-                rows="3"></textarea>
-            </td>
-            <td><input type="number" [(ngModel)]="row.setNumber" /></td>
-            <td><input [(ngModel)]="row.reps" /></td>
-            <td class="video-col">
-              <input [(ngModel)]="row.videoUrl" placeholder="https://..." />
-              <a
-                *ngIf="row.videoUrl"
-                class="video-link"
-                [href]="normalizeVideoUrl(row.videoUrl)"
-                target="_blank"
-                rel="noopener noreferrer">
-                Open
-              </a>
-            </td>
-            <td>
-              <button type="button" class="row-remove" (click)="newPlanRows.splice(i, 1)">Remove</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+          <div class="day-actions">
+            <button type="button" class="btn btn-secondary" (click)="addRowToDay(newPlanRows, group.dayName)">
+              + Add Row
+            </button>
+            <button type="button" class="btn btn-danger ghost-danger" (click)="removeDayFromRows(newPlanRows, group.dayName)">
+              Remove Day
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="workout-grid">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Exercise</th>
+                <th>Muscle Group</th>
+                <th>Muscles Trained</th>
+                <th>Set</th>
+                <th>Reps</th>
+                <th>Video URL</th>
+                <th></th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr *ngFor="let row of group.rows; let i = index">
+                <td class="row-index">{{ i + 1 }}</td>
+                <td>
+                  <input
+                    [(ngModel)]="row.exerciseName"
+                    [attr.list]="'exercise-library-options'"
+                    (input)="onExerciseInput(row)"
+                    (blur)="applyExerciseLibraryByName(row)" />
+                </td>
+                <td><input [(ngModel)]="row.muscleGroup" /></td>
+                <td>
+                  <textarea
+                    class="muscles-textarea"
+                    [(ngModel)]="row.musclesTrained"
+                    rows="3"></textarea>
+                </td>
+                <td><input type="number" [(ngModel)]="row.setNumber" /></td>
+                <td><input [(ngModel)]="row.reps" /></td>
+                <td class="video-col">
+                  <input [(ngModel)]="row.videoUrl" placeholder="https://..." />
+                  <a
+                    *ngIf="row.videoUrl"
+                    class="video-link"
+                    [href]="normalizeVideoUrl(row.videoUrl)"
+                    target="_blank"
+                    rel="noopener noreferrer">
+                    Open
+                  </a>
+                </td>
+                <td>
+                  <button type="button" class="row-remove" (click)="removeRowFromRows(newPlanRows, row)">Remove</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="empty-rows-card" *ngIf="!newPlanRows.length">
+        <p>No workout rows added yet.</p>
+        <button type="button" class="btn btn-secondary" (click)="addDayToRows(newPlanRows)">
+          + Add First Day
+        </button>
+      </div>
     </div>
 
+    <section class="volume-summary-card" *ngIf="newPlanRows.length">
+      <div class="summary-header">
+        <h4>Muscle Group Volume Summary</h4>
+        <p>Total sets and frequency across the full plan.</p>
+      </div>
+
+      <div class="table-wrap" *ngIf="getMuscleGroupSummary(newPlanRows).length">
+        <table class="summary-grid">
+          <thead>
+            <tr>
+              <th>Muscle Group</th>
+              <th>Total Sets</th>
+              <th>Frequency</th>
+              <th>Day Split</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of getMuscleGroupSummary(newPlanRows)">
+              <td>{{ item.muscleGroup }}</td>
+              <td>{{ item.totalSets }}</td>
+              <td>{{ item.frequency }} time(s)</td>
+              <td>{{ item.dayBreakdown.join(' | ') }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <div class="builder-actions">
-      <button type="button" class="btn btn-secondary" (click)="newPlanRows.push(emptyRow())">
-        + Add Row
+      <button type="button" class="btn btn-secondary" (click)="addDayToRows(newPlanRows)">
+        + Add Day
       </button>
 
       <div class="right-actions">

@@ -11,10 +11,23 @@ import { concatMap, finalize, mapTo } from 'rxjs/operators';
 interface WorkoutGridRow {
   dayName: string;
   exerciseName: string;
+  muscleGroup: string;
   musclesTrained: string;
-  setNumber: number;
+  setNumber: number | null;
   reps: string;        // e.g. "8-10"
   videoUrl: string;
+}
+
+interface WorkoutDayGroup {
+  dayName: string;
+  rows: WorkoutGridRow[];
+}
+
+interface MuscleGroupSummary {
+  muscleGroup: string;
+  totalSets: number;
+  frequency: number;
+  dayBreakdown: string[];
 }
 
 @Component({
@@ -25,6 +38,8 @@ interface WorkoutGridRow {
   styleUrls: ['./workout-create.component.scss']
 })
 export class WorkoutCreateComponent implements OnInit {
+  private readonly rowIdentityMap = new WeakMap<WorkoutGridRow, number>();
+  private rowIdentityCounter = 0;
 
   members: any[] = [];
 
@@ -56,12 +71,13 @@ newPlanRows: WorkoutGridRow[] = [];
 exerciseLibraryItems: any[] = [];
 loadingExerciseLibraryItems = false;
 
-emptyRow(): WorkoutGridRow {
+emptyRow(dayName = ''): WorkoutGridRow {
   return {
-    dayName: '',
+    dayName,
     exerciseName: '',
+    muscleGroup: '',
     musclesTrained: '',
-    setNumber: 1,
+    setNumber: null,
     reps: '',
     videoUrl: ''
   };
@@ -194,8 +210,9 @@ addEmptyRow() {
     this.gridRows.push({
       dayName: '',
       exerciseName: '',
+      muscleGroup: '',
       musclesTrained: '',
-      setNumber: this.nextSetNumber(),
+      setNumber: null,
       reps: '',
       videoUrl: ''
   });
@@ -205,10 +222,115 @@ removeRow(index: number) {
   this.gridRows.splice(index, 1);
 }
 
-private nextSetNumber(): number {
-  if (!this.gridRows.length) return 1;
-  const max = Math.max(...this.gridRows.map(r => r.setNumber || 0));
-  return max + 1;
+getGroupedRows(rows: WorkoutGridRow[]): WorkoutDayGroup[] {
+  const orderedMap = new Map<string, WorkoutGridRow[]>();
+
+  rows.forEach((row) => {
+    const key = row.dayName?.trim() || 'Day';
+    if (!orderedMap.has(key)) {
+      orderedMap.set(key, []);
+    }
+    orderedMap.get(key)!.push(row);
+  });
+
+  return Array.from(orderedMap.entries()).map(([dayName, dayRows]) => ({
+    dayName,
+    rows: dayRows
+  }));
+}
+
+updateDayName(rows: WorkoutGridRow[], previousDayName: string, nextDayName: string) {
+  const normalizedDayName = nextDayName.trim() || previousDayName;
+
+  rows.forEach((row) => {
+    if (row.dayName === previousDayName) {
+      row.dayName = normalizedDayName;
+    }
+  });
+}
+
+addDayToRows(rows: WorkoutGridRow[]) {
+  rows.push(this.emptyRow(this.getNextDayLabel(rows)));
+}
+
+addRowToDay(rows: WorkoutGridRow[], dayName: string) {
+  rows.push({
+    ...this.emptyRow(dayName)
+  });
+}
+
+removeRowFromRows(rows: WorkoutGridRow[], rowToRemove: WorkoutGridRow) {
+  const index = rows.indexOf(rowToRemove);
+  if (index >= 0) {
+    rows.splice(index, 1);
+  }
+}
+
+removeDayFromRows(rows: WorkoutGridRow[], dayName: string) {
+  const remainingRows = rows.filter((row) => row.dayName !== dayName);
+  rows.splice(0, rows.length, ...remainingRows);
+}
+
+trackByDayGroup(_index: number, group: WorkoutDayGroup) {
+  return group.dayName;
+}
+
+trackByWorkoutRow(_index: number, row: WorkoutGridRow) {
+  return this.getRowIdentity(row);
+}
+
+getMuscleGroupSummary(rows: WorkoutGridRow[]): MuscleGroupSummary[] {
+  const summaryMap = new Map<
+    string,
+    {
+      totalSets: number;
+      days: Map<string, number>;
+    }
+  >();
+
+  rows.forEach((row) => {
+    const muscleGroup = row.muscleGroup?.trim();
+    const dayName = row.dayName?.trim();
+    const setCount = Number(row.setNumber) || 0;
+
+    if (!muscleGroup || !dayName || setCount <= 0) {
+      return;
+    }
+
+    if (!summaryMap.has(muscleGroup)) {
+      summaryMap.set(muscleGroup, {
+        totalSets: 0,
+        days: new Map<string, number>()
+      });
+    }
+
+    const summary = summaryMap.get(muscleGroup)!;
+    summary.totalSets += setCount;
+    summary.days.set(dayName, (summary.days.get(dayName) || 0) + setCount);
+  });
+
+  return Array.from(summaryMap.entries())
+    .map(([muscleGroup, summary]) => ({
+      muscleGroup,
+      totalSets: summary.totalSets,
+      frequency: summary.days.size,
+      dayBreakdown: Array.from(summary.days.entries()).map(
+        ([dayName, sets]) => `${dayName}: ${sets}`
+      )
+    }))
+    .sort((a, b) => b.totalSets - a.totalSets || a.muscleGroup.localeCompare(b.muscleGroup));
+}
+
+private getNextDayLabel(rows: WorkoutGridRow[]): string {
+  const dayNumbers = this.getGroupedRows(rows)
+    .map((group) => {
+      const match = group.dayName.match(/^day\s*(\d+)$/i);
+      return match ? Number(match[1]) : null;
+    })
+    .filter((value): value is number => value != null && Number.isFinite(value));
+
+  const nextNumber = dayNumbers.length ? Math.max(...dayNumbers) + 1 : this.getGroupedRows(rows).length + 1;
+  return `Day ${nextNumber}`;
 }
 
 private mapPlanToGrid(plan: any) {
@@ -220,6 +342,7 @@ private mapPlanToGrid(plan: any) {
         rows.push({
           dayName: day.dayName,
           exerciseName: ex.name,
+          muscleGroup: ex.muscleGroup || '',
           musclesTrained: ex.musclesTrained || '',
           setNumber: set.setNumber,
           reps: set.reps?.toString() ?? '',
@@ -245,6 +368,7 @@ private mapPlanToGridLocal(plan: any): WorkoutGridRow[] {
         rows.push({
           dayName: day.dayName,
           exerciseName: ex.name,
+          muscleGroup: ex.muscleGroup || '',
           musclesTrained: ex.musclesTrained || '',
           setNumber: set.setNumber,
           reps: set.reps?.toString() ?? '',
@@ -259,6 +383,10 @@ private mapPlanToGridLocal(plan: any): WorkoutGridRow[] {
 
 enableEdit(plan: any) {
   this.editablePlanId = plan.id;
+
+  if (!plan.gridRows?.length) {
+    plan.gridRows = [this.emptyRow('Day 1')];
+  }
 }
 
 cancelEdit(plan: any) {
@@ -284,7 +412,7 @@ private validateGrid(rows: WorkoutGridRow[]): boolean {
 private groupGrid(rows: WorkoutGridRow[]) {
   const dayMap = new Map<
     string,
-    Map<string, { exerciseName: string; musclesTrained: string; videoUrl: string; rows: WorkoutGridRow[] }>
+    Map<string, { exerciseName: string; muscleGroup: string; musclesTrained: string; videoUrl: string; rows: WorkoutGridRow[] }>
   >();
 
   rows.forEach(row => {
@@ -293,13 +421,15 @@ private groupGrid(rows: WorkoutGridRow[]) {
     }
 
     const exMap = dayMap.get(row.dayName)!;
+    const normalizedMuscleGroup = (row.muscleGroup || '').trim();
     const normalizedMusclesTrained = (row.musclesTrained || '').trim();
     const normalizedVideoUrl = this.normalizeVideoUrl(row.videoUrl);
-    const exerciseKey = `${row.exerciseName}__${normalizedMusclesTrained}__${normalizedVideoUrl}`;
+    const exerciseKey = `${row.exerciseName}__${normalizedMuscleGroup}__${normalizedMusclesTrained}__${normalizedVideoUrl}`;
 
     if (!exMap.has(exerciseKey)) {
       exMap.set(exerciseKey, {
         exerciseName: row.exerciseName,
+        muscleGroup: normalizedMuscleGroup,
         musclesTrained: normalizedMusclesTrained,
         videoUrl: normalizedVideoUrl,
         rows: []
@@ -308,6 +438,7 @@ private groupGrid(rows: WorkoutGridRow[]) {
 
     exMap.get(exerciseKey)!.rows.push({
       ...row,
+      muscleGroup: normalizedMuscleGroup,
       musclesTrained: normalizedMusclesTrained,
       videoUrl: normalizedVideoUrl
     });
@@ -361,7 +492,7 @@ delete$
 
             let exChain$: Observable<void> = of(void 0);
 
-            exerciseMap.forEach(({ rows: sets, exerciseName, musclesTrained, videoUrl }) => {
+            exerciseMap.forEach(({ rows: sets, exerciseName, muscleGroup, musclesTrained, videoUrl }) => {
 
               exChain$ = exChain$.pipe(
 
@@ -369,6 +500,7 @@ delete$
                 concatMap(() =>
                   this.workoutApi.addExerciseToDay(dayId, {
                     name: exerciseName,
+                    muscleGroup,
                     musclesTrained,
                     videoUrl
                   })
@@ -380,13 +512,14 @@ delete$
                   let setChain$: Observable<void> = of(void 0);
 
                   sets
-                    .sort((a, b) => a.setNumber - b.setNumber)
+                    .filter((s) => s.setNumber != null)
+                    .sort((a, b) => (a.setNumber ?? 0) - (b.setNumber ?? 0))
                     .forEach(s => {
                       setChain$ = setChain$.pipe(
                         concatMap(() =>
                           this.workoutApi
                             .addSetToExercise(exerciseId, {
-                              setNumber: s.setNumber,
+                              setNumber: s.setNumber!,
                               reps: s.reps
                             })
                             .pipe(mapTo(void 0))
@@ -457,7 +590,7 @@ startCreate() {
   this.mode = 'EDIT';
   this.title = '';
   this.notes = '';
-  this.newPlanRows = [this.emptyRow()];
+  this.newPlanRows = [this.emptyRow('Day 1')];
 }
 
 saveAndAssign() {
@@ -530,13 +663,14 @@ private rebuildPlanFromGrid(
 
         let exChain$: Observable<void> = of(void 0);
 
-        exerciseMap.forEach(({ rows: sets, exerciseName, musclesTrained, videoUrl }) => {
+        exerciseMap.forEach(({ rows: sets, exerciseName, muscleGroup, musclesTrained, videoUrl }) => {
 
           exChain$ = exChain$.pipe(
 
             concatMap(() =>
               this.workoutApi.addExerciseToDay(dayId, {
                 name: exerciseName,
+                muscleGroup,
                 musclesTrained,
                 videoUrl
               })
@@ -547,13 +681,14 @@ private rebuildPlanFromGrid(
               let setChain$: Observable<void> = of(void 0);
 
               sets
-                .sort((a, b) => a.setNumber - b.setNumber)
+                .filter((s) => s.setNumber != null)
+                .sort((a, b) => (a.setNumber ?? 0) - (b.setNumber ?? 0))
                 .forEach(s => {
                   setChain$ = setChain$.pipe(
                     concatMap(() =>
                       this.workoutApi
                         .addSetToExercise(exerciseId, {
-                          setNumber: s.setNumber,
+                          setNumber: s.setNumber!,
                           reps: s.reps
                         })
                         .pipe(mapTo(void 0))
@@ -579,14 +714,8 @@ private rebuildPlanFromGrid(
 }
 
 addRowToPlan(plan: any) {
-  plan.gridRows.push({
-    dayName: '',
-    exerciseName: '',
-    musclesTrained: '',
-    setNumber: this.nextSetNumberFromPlan(plan),
-    reps: '',
-    videoUrl: ''
-  });
+  const fallbackDayName = this.getGroupedRows(plan.gridRows)[0]?.dayName || 'Day 1';
+  this.addRowToDay(plan.gridRows, fallbackDayName);
 }
 
 private nextSetNumberFromPlan(plan: any): number {
@@ -617,6 +746,7 @@ applyExerciseLibraryByName(row: WorkoutGridRow) {
   if (!match) return;
 
   row.exerciseName = match.exerciseName || row.exerciseName;
+  row.muscleGroup = match.muscleGroup || '';
   row.musclesTrained = match.musclesTrained || '';
   row.videoUrl = this.normalizeVideoUrl(match.videoUrl || '');
 }
@@ -625,6 +755,18 @@ private isValidOptionalVideoUrl(url: string | null | undefined): boolean {
   const normalized = this.normalizeVideoUrl(url);
   if (!normalized) return true;
   return /^(https?:\/\/)[^\s]+$/i.test(normalized);
+}
+
+private getRowIdentity(row: WorkoutGridRow): number {
+  let identity = this.rowIdentityMap.get(row);
+
+  if (!identity) {
+    this.rowIdentityCounter += 1;
+    identity = this.rowIdentityCounter;
+    this.rowIdentityMap.set(row, identity);
+  }
+
+  return identity;
 }
 
 }
