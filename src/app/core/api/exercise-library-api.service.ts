@@ -6,6 +6,7 @@ export interface ExerciseLibraryPayload {
   srNo: number;
   muscleGroup: string;
   exerciseName: string;
+  musclesTrained?: string;
   videoUrl: string;
 }
 

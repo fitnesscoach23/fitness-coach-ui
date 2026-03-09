@@ -28,6 +28,20 @@
       {{ deletingMember ? 'Deleting...' : 'Delete' }}
     </button>
 
+    <button
+      class="secondary-btn"
+      [routerLink]="['/notifications']"
+      [queryParams]="{
+        memberId: member.id,
+        channel: 'EMAIL',
+        type: 'WELCOME',
+        recipient: member.email,
+        subject: 'Welcome to your program',
+        message: 'Welcome to the program.'
+      }">
+      Send Welcome
+    </button>
+
     <button routerLink="/members" class="secondary-btn">
       Back
     </button>

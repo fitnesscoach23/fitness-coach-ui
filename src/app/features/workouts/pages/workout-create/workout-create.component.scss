@@ -159,7 +159,7 @@
 
 .workout-grid {
   width: 100%;
-  min-width: 900px;
+  min-width: 1120px;
   border-collapse: collapse;
   background: #fff;
 }
@@ -192,9 +192,31 @@
   background: #fff;
 }
 
+.workout-grid textarea {
+  width: 100%;
+  min-width: 160px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 0;
+  background: #fff;
+  font-family: inherit;
+  resize: vertical;
+  line-height: 1.4;
+}
+
 .workout-grid input:disabled {
   background: #f8fafc;
   color: #6b7280;
+}
+
+.workout-grid textarea:disabled {
+  background: #f8fafc;
+  color: #6b7280;
+}
+
+.muscles-textarea {
+  min-height: 88px;
 }
 
 .video-col {

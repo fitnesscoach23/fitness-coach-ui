@@ -423,6 +423,40 @@ export class BillingHomeComponent implements OnInit {
     this.router.navigate(['/members', memberId]);
   }
 
+  openReminderForSelectedMember(): void {
+    if (!this.selectedMember) return;
+
+    const subject = 'Payment reminder';
+    const message = `Hi ${this.selectedMember.fullName || ''}, your payment is due. Pending amount: ₹${this.totalPending}.`;
+
+    this.router.navigate(['/notifications'], {
+      queryParams: {
+        memberId: this.selectedMember.id,
+        channel: 'EMAIL',
+        type: 'PAYMENT_REMINDER',
+        recipient: this.selectedMember.email || '',
+        subject,
+        message
+      }
+    });
+  }
+
+  openReminderForMember(row: BillingRow): void {
+    const subject = 'Payment reminder';
+    const message = `Hi ${row.fullName || ''}, your payment is due. Pending amount: ₹${row.totalPending}.`;
+
+    this.router.navigate(['/notifications'], {
+      queryParams: {
+        memberId: row.id,
+        channel: 'EMAIL',
+        type: 'PAYMENT_REMINDER',
+        recipient: row.email || '',
+        subject,
+        message
+      }
+    });
+  }
+
   formatDate(value: string): string {
     if (!value || value === '-') return '-';
 

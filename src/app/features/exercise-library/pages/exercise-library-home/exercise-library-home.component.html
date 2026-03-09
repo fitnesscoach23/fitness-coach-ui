@@ -38,6 +38,16 @@
       </div>
 
       <div class="field-group">
+        <label for="musclesTrained">Muscles Trained</label>
+        <textarea
+          id="musclesTrained"
+          class="muscles-textarea"
+          [(ngModel)]="form.musclesTrained"
+          rows="3"
+          placeholder="Lats&#10;Upper Back&#10;Biceps"></textarea>
+      </div>
+
+      <div class="field-group">
         <label for="videoUrl">Video URL</label>
         <input id="videoUrl" [(ngModel)]="form.videoUrl" placeholder="https://..." />
       </div>
@@ -67,6 +77,7 @@
             <th>Sr No</th>
             <th>Muscle Group</th>
             <th>Exercise Name</th>
+            <th>Muscles Trained</th>
             <th>Video URL</th>
             <th>Actions</th>
           </tr>
@@ -76,6 +87,7 @@
             <td>{{ ex.srNo }}</td>
             <td>{{ ex.muscleGroup }}</td>
             <td>{{ ex.exerciseName }}</td>
+            <td>{{ ex.musclesTrained || '-' }}</td>
             <td>
               <a
                 *ngIf="ex.videoUrl"

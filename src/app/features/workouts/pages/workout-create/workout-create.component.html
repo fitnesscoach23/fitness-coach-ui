@@ -111,6 +111,7 @@
             <tr>
               <th>Day</th>
               <th>Exercise</th>
+              <th>Muscles Trained</th>
               <th>Set</th>
               <th>Reps</th>
               <th>Video URL</th>
@@ -130,6 +131,13 @@
                   (input)="onExerciseInput(row)"
                   (blur)="applyExerciseLibraryByName(row)"
                   [disabled]="editablePlanId !== p.id" />
+              </td>
+              <td>
+                <textarea
+                  class="muscles-textarea"
+                  [(ngModel)]="row.musclesTrained"
+                  [disabled]="editablePlanId !== p.id"
+                  rows="3"></textarea>
               </td>
               <td>
                 <input type="number" [(ngModel)]="row.setNumber" [disabled]="editablePlanId !== p.id" />
@@ -184,6 +192,7 @@
           <tr>
             <th>Day</th>
             <th>Exercise</th>
+            <th>Muscles Trained</th>
             <th>Set</th>
             <th>Reps</th>
             <th>Video URL</th>
@@ -200,6 +209,12 @@
                 [attr.list]="'exercise-library-options'"
                 (input)="onExerciseInput(row)"
                 (blur)="applyExerciseLibraryByName(row)" />
+            </td>
+            <td>
+              <textarea
+                class="muscles-textarea"
+                [(ngModel)]="row.musclesTrained"
+                rows="3"></textarea>
             </td>
             <td><input type="number" [(ngModel)]="row.setNumber" /></td>
             <td><input [(ngModel)]="row.reps" /></td>

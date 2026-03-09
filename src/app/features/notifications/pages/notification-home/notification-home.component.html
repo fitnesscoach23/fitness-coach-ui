@@ -1,0 +1,157 @@
+<div class="notifications-page">
+  <section class="hero-card">
+    <h1>Notifications</h1>
+    <p>Send Email/SMS notifications and review delivery history.</p>
+  </section>
+
+  <section class="card">
+    <h2>Compose Notification</h2>
+
+    <div class="form-grid">
+      <div class="field-group">
+        <label>Member</label>
+        <select [(ngModel)]="composeForm.memberId" (ngModelChange)="onComposeMemberChange()">
+          <option value="">Select member</option>
+          <option *ngFor="let member of members" [value]="member.id">
+            {{ member.fullName }} ({{ member.email }})
+          </option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label>Channel</label>
+        <select [(ngModel)]="composeForm.channel" (ngModelChange)="onComposeChannelChange()">
+          <option *ngFor="let option of channelOptions" [value]="option">{{ option }}</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label>Type</label>
+        <select [(ngModel)]="composeForm.type" (ngModelChange)="onComposeTypeChange()">
+          <option *ngFor="let option of typeOptions" [value]="option">{{ option }}</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label>Recipient</label>
+        <input [(ngModel)]="composeForm.recipient" placeholder="member@email.com or phone" />
+      </div>
+
+      <div class="field-group full-width" *ngIf="composeForm.channel === 'EMAIL'">
+        <label>Subject</label>
+        <input [(ngModel)]="composeForm.subject" placeholder="Email subject" />
+      </div>
+
+      <div class="field-group full-width">
+        <label>Message</label>
+        <textarea [(ngModel)]="composeForm.message" rows="4" placeholder="Notification message"></textarea>
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button class="btn btn-primary" (click)="sendNotification()" [disabled]="sending || membersLoading">
+        {{ sending ? 'Sending...' : 'Send Notification' }}
+      </button>
+      <span class="success" *ngIf="sendMessage">{{ sendMessage }}</span>
+      <span class="error" *ngIf="error">{{ error }}</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Notification History</h2>
+
+    <div class="filter-grid">
+      <div class="field-group">
+        <label>Member</label>
+        <select [(ngModel)]="filters.memberId">
+          <option value="">All members</option>
+          <option *ngFor="let member of members" [value]="member.id">
+            {{ member.fullName }}
+          </option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label>Channel</label>
+        <select [(ngModel)]="filters.channel">
+          <option value="">All channels</option>
+          <option *ngFor="let option of channelOptions" [value]="option">{{ option }}</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label>Status</label>
+        <select [(ngModel)]="filters.status">
+          <option value="">All status</option>
+          <option *ngFor="let option of statusOptions" [value]="option">{{ option }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button class="btn btn-secondary" (click)="loadHistory()" [disabled]="loadingHistory">
+        {{ loadingHistory ? 'Loading...' : 'Apply Filters' }}
+      </button>
+      <button class="btn btn-secondary" (click)="clearFilters()" [disabled]="loadingHistory">Clear</button>
+    </div>
+
+    <div class="table-wrap" *ngIf="!loadingHistory && notifications.length > 0">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Created</th>
+            <th>Member</th>
+            <th>Channel</th>
+            <th>Type</th>
+            <th>Recipient</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let notification of notifications">
+            <td>{{ formatDate(notification.createdAt) }}</td>
+            <td>{{ getMemberName(notification.memberId) }}</td>
+            <td>{{ notification.channel }}</td>
+            <td>{{ notification.type }}</td>
+            <td>{{ notification.recipient }}</td>
+            <td>
+              <span class="status-pill" [class.failed]="notification.status === 'FAILED'" [class.pending]="notification.status === 'PENDING'">
+                {{ notification.status }}
+              </span>
+            </td>
+            <td>
+              <button class="btn btn-secondary" (click)="viewDetails(notification.id)" [disabled]="loadingDetails">
+                Details
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="state" *ngIf="loadingHistory">Loading notification history...</div>
+    <div class="state" *ngIf="!loadingHistory && notifications.length === 0">No notifications found.</div>
+  </section>
+
+  <section class="card" *ngIf="selectedNotification">
+    <h2>Notification Details</h2>
+    <div class="details-grid">
+      <div><label>ID</label><span>{{ selectedNotification.id }}</span></div>
+      <div><label>Member</label><span>{{ getMemberName(selectedNotification.memberId) }}</span></div>
+      <div><label>Channel</label><span>{{ selectedNotification.channel }}</span></div>
+      <div><label>Type</label><span>{{ selectedNotification.type }}</span></div>
+      <div><label>Status</label><span>{{ selectedNotification.status }}</span></div>
+      <div><label>Recipient</label><span>{{ selectedNotification.recipient }}</span></div>
+      <div *ngIf="selectedNotification.subject"><label>Subject</label><span>{{ selectedNotification.subject }}</span></div>
+      <div><label>Created</label><span>{{ formatDate(selectedNotification.createdAt) }}</span></div>
+      <div><label>Updated</label><span>{{ formatDate(selectedNotification.updatedAt) }}</span></div>
+      <div class="full-width"><label>Message</label><pre>{{ selectedNotification.message }}</pre></div>
+      <div class="full-width" *ngIf="selectedNotification.errorMessage">
+        <label>Error</label>
+        <pre class="error-block">{{ selectedNotification.errorMessage }}</pre>
+      </div>
+    </div>
+  </section>
+</div>
+

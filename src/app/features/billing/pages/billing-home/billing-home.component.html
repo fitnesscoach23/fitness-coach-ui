@@ -145,6 +145,12 @@
           (click)="openMemberProfile(selectedMemberId)">
           Open Member Profile
         </button>
+        <button
+          class="secondary-btn"
+          [disabled]="!selectedMemberId"
+          (click)="openReminderForSelectedMember()">
+          Send Reminder
+        </button>
       </div>
     </div>
 
@@ -215,6 +221,9 @@
               </button>
               <button class="secondary-btn" (click)="selectedMemberId = row.id; onMemberChange()">
                 Manage
+              </button>
+              <button class="secondary-btn" (click)="openReminderForMember(row)">
+                Reminder
               </button>
             </td>
           </tr>

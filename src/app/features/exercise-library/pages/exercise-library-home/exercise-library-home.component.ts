@@ -14,6 +14,7 @@ type ImportRow = {
   srNo: number;
   muscleGroup: string;
   exerciseName: string;
+  musclesTrained: string;
   videoUrl: string;
 };
 
@@ -41,12 +42,14 @@ export class ExerciseLibraryHomeComponent implements OnInit {
     srNo: number | null;
     muscleGroup: string;
     exerciseName: string;
+    musclesTrained: string;
     videoUrl: string;
   } = {
     id: null,
     srNo: null,
     muscleGroup: '',
     exerciseName: '',
+    musclesTrained: '',
     videoUrl: ''
   };
 
@@ -90,6 +93,7 @@ export class ExerciseLibraryHomeComponent implements OnInit {
       srNo: this.form.srNo,
       muscleGroup: this.form.muscleGroup.trim(),
       exerciseName: this.form.exerciseName.trim(),
+      musclesTrained: this.form.musclesTrained.trim(),
       videoUrl: normalizedVideoUrl
     };
 
@@ -118,6 +122,7 @@ export class ExerciseLibraryHomeComponent implements OnInit {
       srNo: ex.srNo ?? null,
       muscleGroup: ex.muscleGroup || '',
       exerciseName: ex.exerciseName || '',
+      musclesTrained: ex.musclesTrained || '',
       videoUrl: ex.videoUrl || ''
     };
   }
@@ -193,6 +198,7 @@ export class ExerciseLibraryHomeComponent implements OnInit {
             srNo: row.srNo,
             muscleGroup: row.muscleGroup,
             exerciseName: row.exerciseName,
+            musclesTrained: row.musclesTrained,
             videoUrl: this.normalizeVideoUrl(row.videoUrl)
           };
 
@@ -234,6 +240,7 @@ export class ExerciseLibraryHomeComponent implements OnInit {
     const srIdx = header.findIndex((h: string) => h === 'srno');
     const groupIdx = header.findIndex((h: string) => h === 'musclegroup');
     const exerciseIdx = header.findIndex((h: string) => h === 'exercisename');
+    const musclesTrainedIdx = header.findIndex((h: string) => h === 'musclestrained');
     const videoIdx = header.findIndex((h: string) => h === 'videourl');
 
     if (srIdx < 0 || groupIdx < 0 || exerciseIdx < 0) return [];
@@ -247,6 +254,7 @@ export class ExerciseLibraryHomeComponent implements OnInit {
       const exerciseName = String(row[exerciseIdx] ?? '').trim();
       const muscleGroupRaw = String(row[groupIdx] ?? '').trim();
       const videoUrl = videoIdx >= 0 ? String(row[videoIdx] ?? '').trim() : '';
+      const musclesTrained = musclesTrainedIdx >= 0 ? String(row[musclesTrainedIdx] ?? '').trim() : '';
 
       const srNo = Number(srRaw);
       if (!Number.isFinite(srNo) || srNo <= 0 || !exerciseName) {
@@ -261,6 +269,7 @@ export class ExerciseLibraryHomeComponent implements OnInit {
         srNo,
         muscleGroup: muscleGroupRaw || lastMuscleGroup,
         exerciseName,
+        musclesTrained,
         videoUrl
       });
     }
@@ -275,6 +284,7 @@ export class ExerciseLibraryHomeComponent implements OnInit {
       srNo: null,
       muscleGroup: '',
       exerciseName: '',
+      musclesTrained: '',
       videoUrl: ''
     };
   }

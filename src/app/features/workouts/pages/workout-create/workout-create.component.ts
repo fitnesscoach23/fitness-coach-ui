@@ -11,6 +11,7 @@ import { concatMap, finalize, mapTo } from 'rxjs/operators';
 interface WorkoutGridRow {
   dayName: string;
   exerciseName: string;
+  musclesTrained: string;
   setNumber: number;
   reps: string;        // e.g. "8-10"
   videoUrl: string;
@@ -59,6 +60,7 @@ emptyRow(): WorkoutGridRow {
   return {
     dayName: '',
     exerciseName: '',
+    musclesTrained: '',
     setNumber: 1,
     reps: '',
     videoUrl: ''
@@ -189,12 +191,13 @@ editPlan(planId: string) {
 
 
 addEmptyRow() {
-  this.gridRows.push({
-    dayName: '',
-    exerciseName: '',
-    setNumber: this.nextSetNumber(),
-    reps: '',
-    videoUrl: ''
+    this.gridRows.push({
+      dayName: '',
+      exerciseName: '',
+      musclesTrained: '',
+      setNumber: this.nextSetNumber(),
+      reps: '',
+      videoUrl: ''
   });
 }
 
@@ -217,6 +220,7 @@ private mapPlanToGrid(plan: any) {
         rows.push({
           dayName: day.dayName,
           exerciseName: ex.name,
+          musclesTrained: ex.musclesTrained || '',
           setNumber: set.setNumber,
           reps: set.reps?.toString() ?? '',
           videoUrl: ex.videoUrl || ''
@@ -241,6 +245,7 @@ private mapPlanToGridLocal(plan: any): WorkoutGridRow[] {
         rows.push({
           dayName: day.dayName,
           exerciseName: ex.name,
+          musclesTrained: ex.musclesTrained || '',
           setNumber: set.setNumber,
           reps: set.reps?.toString() ?? '',
           videoUrl: ex.videoUrl || ''
@@ -279,7 +284,7 @@ private validateGrid(rows: WorkoutGridRow[]): boolean {
 private groupGrid(rows: WorkoutGridRow[]) {
   const dayMap = new Map<
     string,
-    Map<string, { exerciseName: string; videoUrl: string; rows: WorkoutGridRow[] }>
+    Map<string, { exerciseName: string; musclesTrained: string; videoUrl: string; rows: WorkoutGridRow[] }>
   >();
 
   rows.forEach(row => {
@@ -288,12 +293,14 @@ private groupGrid(rows: WorkoutGridRow[]) {
     }
 
     const exMap = dayMap.get(row.dayName)!;
+    const normalizedMusclesTrained = (row.musclesTrained || '').trim();
     const normalizedVideoUrl = this.normalizeVideoUrl(row.videoUrl);
-    const exerciseKey = `${row.exerciseName}__${normalizedVideoUrl}`;
+    const exerciseKey = `${row.exerciseName}__${normalizedMusclesTrained}__${normalizedVideoUrl}`;
 
     if (!exMap.has(exerciseKey)) {
       exMap.set(exerciseKey, {
         exerciseName: row.exerciseName,
+        musclesTrained: normalizedMusclesTrained,
         videoUrl: normalizedVideoUrl,
         rows: []
       });
@@ -301,6 +308,7 @@ private groupGrid(rows: WorkoutGridRow[]) {
 
     exMap.get(exerciseKey)!.rows.push({
       ...row,
+      musclesTrained: normalizedMusclesTrained,
       videoUrl: normalizedVideoUrl
     });
   });
@@ -353,7 +361,7 @@ delete$
 
             let exChain$: Observable<void> = of(void 0);
 
-            exerciseMap.forEach(({ rows: sets, exerciseName, videoUrl }) => {
+            exerciseMap.forEach(({ rows: sets, exerciseName, musclesTrained, videoUrl }) => {
 
               exChain$ = exChain$.pipe(
 
@@ -361,6 +369,7 @@ delete$
                 concatMap(() =>
                   this.workoutApi.addExerciseToDay(dayId, {
                     name: exerciseName,
+                    musclesTrained,
                     videoUrl
                   })
                 ),
@@ -521,13 +530,14 @@ private rebuildPlanFromGrid(
 
         let exChain$: Observable<void> = of(void 0);
 
-        exerciseMap.forEach(({ rows: sets, exerciseName, videoUrl }) => {
+        exerciseMap.forEach(({ rows: sets, exerciseName, musclesTrained, videoUrl }) => {
 
           exChain$ = exChain$.pipe(
 
             concatMap(() =>
               this.workoutApi.addExerciseToDay(dayId, {
                 name: exerciseName,
+                musclesTrained,
                 videoUrl
               })
             ),
@@ -572,6 +582,7 @@ addRowToPlan(plan: any) {
   plan.gridRows.push({
     dayName: '',
     exerciseName: '',
+    musclesTrained: '',
     setNumber: this.nextSetNumberFromPlan(plan),
     reps: '',
     videoUrl: ''
@@ -606,6 +617,7 @@ applyExerciseLibraryByName(row: WorkoutGridRow) {
   if (!match) return;
 
   row.exerciseName = match.exerciseName || row.exerciseName;
+  row.musclesTrained = match.musclesTrained || '';
   row.videoUrl = this.normalizeVideoUrl(match.videoUrl || '');
 }
 

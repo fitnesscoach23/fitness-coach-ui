@@ -101,6 +101,12 @@ export const routes: Routes = [
         loadComponent: () =>
             import('./features/diet-library/pages/diet-library-home/diet-library-home.component')
             .then(m => m.DietLibraryHomeComponent)
+        },
+      {
+        path: 'notifications',
+        loadComponent: () =>
+            import('./features/notifications/pages/notification-home/notification-home.component')
+            .then(m => m.NotificationHomeComponent)
         }
 
         // {
