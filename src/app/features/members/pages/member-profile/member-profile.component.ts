@@ -65,7 +65,7 @@ export class MemberProfileComponent implements OnInit {
   checkinPhotos: { [checkinId: string]: any[] } = {};
   currentCheckin: any | null = null;
   previousCheckin: any | null = null;
-  activeSection: 'overview' | 'billing' | 'progress' | 'workout' | 'diet' = 'overview';
+  activeSection: 'overview' | 'bodyMetrics' | 'billing' | 'progress' | 'workout' | 'diet' = 'overview';
   totalPaid = 0;
   totalPending = 0;
   latestWeight = 0;
@@ -78,6 +78,61 @@ export class MemberProfileComponent implements OnInit {
   overrideCycle: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' = 'MONTHLY';
   autoCalculateRenewal = true;
   overrideMessage: string | null = null;
+  bodyMetricsAutoCalc = true;
+  bodyMetricsSaving = false;
+  bodyMetricsMessage: string | null = null;
+  private readonly targetGoalMap: Record<string, string> = {
+    'Fat Loss': 'FAT_LOSS',
+    'Maintenance': 'MAINTENANCE',
+    'Gaining': 'GAINING'
+  };
+  private readonly targetGoalReverseMap: Record<string, 'Fat Loss' | 'Maintenance' | 'Gaining'> = {
+    FAT_LOSS: 'Fat Loss',
+    MAINTENANCE: 'Maintenance',
+    GAINING: 'Gaining'
+  };
+  bodyMetrics = {
+    heightCm: null as number | null,
+    currentWeightKg: null as number | null,
+    gender: '' as string,
+    age: null as number | null,
+    isLean: false,
+    activityFactor: 1.2,
+    trainingHistory: 'Sedentary' as 'Sedentary' | 'Beginner' | 'Intermediate' | 'Advance',
+    proteinRda: 1.0,
+    carbFactor: 3.0,
+    targetGoal: 'Fat Loss' as 'Fat Loss' | 'Maintenance' | 'Gaining',
+    targetCalorieFactor: 11,
+    ibwKg: null as number | null,
+    bmi: null as number | null,
+    bmr: null as number | null,
+    tdee: null as number | null,
+    targetCalories: null as number | null,
+    proteinGrams: null as number | null,
+    carbsGrams: null as number | null,
+    fatsGrams: null as number | null
+  };
+
+  readonly activityOptions = [
+    { label: 'Sedentary (1.2)', value: 1.2 },
+    { label: 'Lightly Active (1.375)', value: 1.375 },
+    { label: 'Moderately Active (1.55)', value: 1.55 },
+    { label: 'Very Active (1.725)', value: 1.725 },
+    { label: 'Extremely Active (1.9)', value: 1.9 }
+  ];
+
+  readonly trainingHistoryOptions = [
+    { label: 'Sedentary (0.8-1.0 g/kg)', value: 1.0 },
+    { label: 'Beginner/Females (1.0-1.3 g/kg)', value: 1.2 },
+    { label: 'Intermediate (1.5-1.8 g/kg)', value: 1.6 },
+    { label: 'Advance (1.6-2.0 g/kg)', value: 1.8 }
+  ];
+
+  readonly targetGoalOptions = [
+    { label: 'Fat Loss (10-12 x IBW lbs)', value: 'Fat Loss', defaultFactor: 11, min: 10, max: 12 },
+    { label: 'Maintenance (12-14 x IBW lbs)', value: 'Maintenance', defaultFactor: 13, min: 12, max: 14 },
+    { label: 'Gaining (14-16 x IBW lbs)', value: 'Gaining', defaultFactor: 15, min: 14, max: 16 }
+  ];
   readonly overviewSections: OverviewSection[] = [
     {
       title: 'Identity',
@@ -239,6 +294,218 @@ export class MemberProfileComponent implements OnInit {
     }
   }
 
+  private applyBodyMetrics(source: any) {
+    if (!source) return;
+
+    this.bodyMetrics.heightCm = this.toNumberOrNull(source.heightCm);
+    this.bodyMetrics.currentWeightKg = this.toNumberOrNull(source.currentWeightKg);
+    this.bodyMetrics.gender = source.gender ?? this.bodyMetrics.gender;
+    this.bodyMetrics.age = this.toNumberOrNull(source.age);
+    this.bodyMetrics.isLean = Boolean(source.isLean);
+    this.bodyMetrics.activityFactor =
+      this.toNumberOrNull(source.activityFactor) ?? this.bodyMetrics.activityFactor;
+    this.bodyMetrics.proteinRda = this.toNumberOrNull(source.proteinRda) ?? this.bodyMetrics.proteinRda;
+    this.bodyMetrics.carbFactor = this.toNumberOrNull(source.carbFactor) ?? this.bodyMetrics.carbFactor;
+    this.bodyMetrics.targetGoal =
+      this.targetGoalReverseMap[source.targetGoal] ?? source.targetGoal ?? this.bodyMetrics.targetGoal;
+    this.bodyMetrics.targetCalorieFactor =
+      this.toNumberOrNull(source.targetCalorieFactor) ?? this.bodyMetrics.targetCalorieFactor;
+    this.bodyMetrics.ibwKg = this.toNumberOrNull(source.ibwKg);
+    this.bodyMetrics.bmi = this.toNumberOrNull(source.bmi);
+    this.bodyMetrics.bmr = this.toNumberOrNull(source.bmr);
+    this.bodyMetrics.tdee = this.toNumberOrNull(source.tdee);
+    this.bodyMetrics.targetCalories = this.toNumberOrNull(source.targetCalories);
+    this.bodyMetrics.proteinGrams = this.toNumberOrNull(source.proteinGrams);
+    this.bodyMetrics.carbsGrams = this.toNumberOrNull(source.carbsGrams);
+    this.bodyMetrics.fatsGrams = this.toNumberOrNull(source.fatsGrams);
+  }
+
+  initializeBodyMetrics() {
+    const storedMetrics = this.member?.bodyMetrics;
+    if (storedMetrics) {
+      this.applyBodyMetrics(storedMetrics);
+    } else {
+      this.bodyMetrics.heightCm = this.toNumberOrNull(this.member?.heightCm);
+      this.bodyMetrics.currentWeightKg = this.toNumberOrNull(this.member?.currentWeightKg);
+      this.bodyMetrics.gender = this.member?.gender || '';
+      this.bodyMetrics.age = this.toNumberOrNull(this.member?.age);
+      this.bodyMetrics.isLean = false;
+    }
+
+    if (this.bodyMetricsAutoCalc) {
+      this.recalculateBodyMetrics();
+    }
+  }
+
+  recalculateBodyMetrics() {
+    const heightCm = this.bodyMetrics.heightCm;
+    const weightKg = this.bodyMetrics.currentWeightKg;
+    const age = this.bodyMetrics.age ?? null;
+    const gender = (this.bodyMetrics.gender || '').toLowerCase();
+
+    if (heightCm == null || heightCm <= 0) {
+      this.bodyMetrics.ibwKg = null;
+      this.bodyMetrics.bmi = null;
+      this.bodyMetrics.bmr = null;
+      this.bodyMetrics.tdee = null;
+      this.bodyMetrics.targetCalories = null;
+      this.bodyMetrics.proteinGrams = null;
+      this.bodyMetrics.carbsGrams = null;
+      this.bodyMetrics.fatsGrams = null;
+      return;
+    }
+
+    const isSenior = age != null && age >= 50;
+    let ibwKg = heightCm - 105;
+    if (isSenior) {
+      ibwKg = heightCm - 100;
+    } else if (gender === 'female') {
+      ibwKg = heightCm - 107;
+    }
+
+    if (this.bodyMetrics.isLean && weightKg != null && weightKg > 0) {
+      ibwKg = weightKg;
+    }
+
+    const heightM = heightCm / 100;
+    const bmi = weightKg && heightM ? weightKg / (heightM * heightM) : null;
+
+    let bmr = ibwKg * 24;
+    if (!isSenior && gender === 'female') {
+      bmr = ibwKg * 22.5;
+    }
+
+    const tdee = bmr * Number(this.bodyMetrics.activityFactor || 1.2);
+    const ibwLb = ibwKg * 2.20462;
+    const targetCalories = ibwLb * Number(this.bodyMetrics.targetCalorieFactor || 0);
+
+    const proteinGrams = ibwKg * Number(this.bodyMetrics.proteinRda || 0);
+    const carbsGrams = ibwKg * Number(this.bodyMetrics.carbFactor || 0);
+    const fatsGrams = targetCalories
+      ? Math.max(0, (targetCalories - (proteinGrams * 4 + carbsGrams * 4)) / 9)
+      : 0;
+
+    this.bodyMetrics.ibwKg = this.roundTo(ibwKg, 1);
+    this.bodyMetrics.bmi = bmi != null ? this.roundTo(bmi, 1) : null;
+    this.bodyMetrics.bmr = this.roundTo(bmr, 0);
+    this.bodyMetrics.tdee = this.roundTo(tdee, 0);
+    this.bodyMetrics.targetCalories = this.roundTo(targetCalories, 0);
+    this.bodyMetrics.proteinGrams = this.roundTo(proteinGrams, 0);
+    this.bodyMetrics.carbsGrams = this.roundTo(carbsGrams, 0);
+    this.bodyMetrics.fatsGrams = this.roundTo(fatsGrams, 0);
+  }
+
+  onGoalChange() {
+    const goalConfig = this.targetGoalOptions.find((g) => g.value === this.bodyMetrics.targetGoal);
+    if (goalConfig) {
+      this.bodyMetrics.targetCalorieFactor = goalConfig.defaultFactor;
+      if (this.bodyMetricsAutoCalc) {
+        this.recalculateBodyMetrics();
+      }
+    }
+  }
+
+  onTrainingHistoryChange() {
+    if (this.bodyMetricsAutoCalc) {
+      this.recalculateBodyMetrics();
+    }
+  }
+
+  saveBodyMetrics() {
+    if (!this.member?.id) return;
+
+    this.bodyMetricsSaving = true;
+    this.bodyMetricsMessage = null;
+
+    const heightCm = this.toNumberOrNull(this.bodyMetrics.heightCm);
+    const currentWeightKg = this.toNumberOrNull(this.bodyMetrics.currentWeightKg);
+    const age = this.toNumberOrNull(this.bodyMetrics.age);
+    const activityFactor = this.toNumberOrNull(this.bodyMetrics.activityFactor);
+    const proteinRda = this.toNumberOrNull(this.bodyMetrics.proteinRda);
+    const carbFactor = this.toNumberOrNull(this.bodyMetrics.carbFactor);
+    const targetCalorieFactor = this.toNumberOrNull(this.bodyMetrics.targetCalorieFactor);
+    const gender = (this.bodyMetrics.gender || '').trim();
+    const targetGoal = this.targetGoalMap[this.bodyMetrics.targetGoal] ?? null;
+
+    if (!heightCm || !currentWeightKg || !age || !gender || !activityFactor || !proteinRda || !targetGoal || !targetCalorieFactor) {
+      this.bodyMetricsMessage = 'Please fill all required fields before saving';
+      this.bodyMetricsSaving = false;
+      return;
+    }
+    if (activityFactor < 1.2 || activityFactor > 1.9) {
+      this.bodyMetricsMessage = 'Activity factor must be between 1.2 and 1.9';
+      this.bodyMetricsSaving = false;
+      return;
+    }
+    if (proteinRda < 0.8 || proteinRda > 2.0) {
+      this.bodyMetricsMessage = 'Protein RDA must be between 0.8 and 2.0';
+      this.bodyMetricsSaving = false;
+      return;
+    }
+    if (carbFactor != null && (carbFactor < 3.0 || carbFactor > 4.0)) {
+      this.bodyMetricsMessage = 'Carb factor must be between 3.0 and 4.0';
+      this.bodyMetricsSaving = false;
+      return;
+    }
+    if (targetCalorieFactor < 10 || targetCalorieFactor > 16) {
+      this.bodyMetricsMessage = 'Target calorie factor must be between 10 and 16';
+      this.bodyMetricsSaving = false;
+      return;
+    }
+
+    const payload = {
+      heightCm,
+      currentWeightKg,
+      gender,
+      age: Math.round(age),
+      isLean: !!this.bodyMetrics.isLean,
+      activityFactor,
+      proteinRda,
+      carbFactor,
+      targetGoal,
+      targetCalorieFactor,
+      ibwKg: this.toNumberOrNull(this.bodyMetrics.ibwKg),
+      bmi: this.toNumberOrNull(this.bodyMetrics.bmi),
+      bmr: this.toNumberOrNull(this.bodyMetrics.bmr),
+      tdee: this.toNumberOrNull(this.bodyMetrics.tdee),
+      targetCalories: this.toNumberOrNull(this.bodyMetrics.targetCalories),
+      proteinGrams: this.toNumberOrNull(this.bodyMetrics.proteinGrams),
+      carbsGrams: this.toNumberOrNull(this.bodyMetrics.carbsGrams),
+      fatsGrams: this.toNumberOrNull(this.bodyMetrics.fatsGrams)
+    };
+
+    this.memberApi.updateBodyMetrics(this.member.id, payload).subscribe({
+      next: (res: any) => {
+        const metrics = res?.bodyMetrics ?? res;
+        if (metrics) {
+          this.applyBodyMetrics(metrics);
+        }
+        if (this.bodyMetricsAutoCalc) {
+          this.recalculateBodyMetrics();
+        }
+        if (this.member) {
+          this.member.bodyMetrics = metrics ?? payload;
+        }
+        this.bodyMetricsMessage = 'Body metrics saved';
+        this.bodyMetricsSaving = false;
+      },
+      error: (err) => {
+        this.bodyMetricsMessage = err?.error?.message || 'Failed to save body metrics';
+        this.bodyMetricsSaving = false;
+      }
+    });
+  }
+
+  private roundTo(value: number, decimals: number) {
+    const factor = Math.pow(10, decimals);
+    return Math.round(value * factor) / factor;
+  }
+
+  private toNumberOrNull(value: any): number | null {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+
   constructor(
     private route: ActivatedRoute,
     private memberApi: MemberApiService,
@@ -296,6 +563,7 @@ removeMeasurement(index: number) {
   this.memberApi.getMemberById(id).subscribe({
     next: (res: any) => {
       this.member = res;
+      this.initializeBodyMetrics();
       this.loadSubscriptionOverride();
       this.loading = false;
       this.loadSubscription();

@@ -27,105 +27,172 @@
   </section>
 
   <section *ngIf="memberSelected" class="editor-card">
-    <div class="form-grid">
-      <div class="field-group">
-        <label for="dietTitle">Plan Title</label>
-        <input id="dietTitle" placeholder="e.g. Fat Loss Phase 1" [(ngModel)]="title" />
-      </div>
+    <div class="top-actions" *ngIf="hasPlan && planId && !isEditing">
+      <button class="btn btn-secondary" type="button" (click)="startEditing()">Edit Diet Plan</button>
     </div>
 
-    <div class="notes-panel">
-      <label for="dietNotes">Additional Notes</label>
-      <textarea
-        id="dietNotes"
-        placeholder="Coach notes, meal timing, hydration targets, food restrictions, special instructions"
-        [(ngModel)]="notes"></textarea>
-    </div>
-
-    <div *ngIf="!hasPlan" class="state-inline">
-      This member has no diet plan yet. Add details above and create one.
-    </div>
-
-    <div class="top-actions" *ngIf="!hasPlan">
-      <button class="btn btn-primary" (click)="save()" [disabled]="loading || !title">
-        {{ loading ? 'Creating...' : 'Create Diet Plan' }}
-      </button>
-    </div>
-
-    <div *ngIf="hasPlan && planId">
-      <div *ngIf="dietRows.length === 0" class="state-inline">
-        No meals added yet.
-        <button type="button" class="btn btn-secondary" (click)="addRow()">+ Add First Meal</button>
-      </div>
-
-      <div *ngIf="dietRows.length > 0" class="table-wrap">
-        <table class="diet-grid">
-          <thead>
-            <tr>
-              <th>Meal</th>
-              <th>Food</th>
-              <th>Qty</th>
-              <th>Unit</th>
-              <th>Protein</th>
-              <th>Carbs</th>
-              <th>Fat</th>
-              <th>Calories</th>
-              <th></th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr *ngFor="let row of dietRows; let i = index">
-              <td><input [(ngModel)]="row.mealType" /></td>
-              <td class="food-cell">
-                <input
-                  [(ngModel)]="row.foodName"
-                  [attr.list]="'diet-library-foods'"
-                  (input)="onFoodNameInput(row)"
-                  (blur)="applyLibraryFoodByName(row)"
-                  placeholder="Type to search from Diet Library" />
-                <datalist id="diet-library-foods">
-                  <option *ngFor="let f of dietLibraryFoods" [value]="f.foodItem">
-                    {{ f.category }} | Cal {{ f.calories }} | C {{ f.carbs }} | P {{ f.protein }} | F {{ f.fats }}
-                  </option>
-                </datalist>
-              </td>
-              <td><input type="number" [(ngModel)]="row.quantity" (ngModelChange)="onQuantityChanged(row)" /></td>
-              <td><input [(ngModel)]="row.unit" /></td>
-              <td><input type="number" [(ngModel)]="row.protein" /></td>
-              <td><input type="number" [(ngModel)]="row.carbs" /></td>
-              <td><input type="number" [(ngModel)]="row.fat" /></td>
-              <td class="cal-cell">{{ displayCalories(row) }}</td>
-              <td>
-                <button type="button" class="row-remove" (click)="dietRows.splice(i, 1)">Remove</button>
-              </td>
-            </tr>
-          </tbody>
-
-          <tfoot>
-            <tr>
-              <td colspan="7" class="total-label">Total Calories</td>
-              <td class="total-value">{{ totalCalories }}</td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      <div class="bottom-actions" *ngIf="dietRows.length > 0">
-        <button type="button" class="btn btn-secondary" (click)="addRow()">+ Add Row</button>
-
-        <div class="right-actions">
-          <button class="btn btn-primary" (click)="save()" [disabled]="loading">
-            {{ loading ? 'Saving...' : 'Save Diet Plan' }}
-          </button>
-          <button type="button" class="btn btn-danger" (click)="deletePlan()" [disabled]="loading">
-            Delete Diet Plan
-          </button>
+    <fieldset class="diet-editor-fieldset" [disabled]="loading || (hasPlan && !isEditing)">
+      <div class="form-grid">
+        <div class="field-group">
+          <label for="dietTitle">Plan Title</label>
+          <input id="dietTitle" placeholder="e.g. Fat Loss Phase 1" [(ngModel)]="title" />
         </div>
       </div>
-    </div>
+
+      <div class="notes-panel">
+        <label for="dietNotes">Additional Notes</label>
+        <textarea
+          id="dietNotes"
+          placeholder="Coach notes, meal timing, hydration targets, food restrictions, special instructions"
+          [(ngModel)]="notes"></textarea>
+      </div>
+
+      <div class="macro-summary" *ngIf="hasPlan && planId">
+        <div class="macro-card">
+          <div class="macro-label">Target Calories</div>
+          <div class="macro-value">{{ targetCalories ?? '-' }}</div>
+          <div class="macro-sub">Pending: {{ pendingCalories ?? '-' }}</div>
+        </div>
+        <div class="macro-card">
+          <div class="macro-label">Target Protein (g)</div>
+          <div class="macro-value">{{ targetProtein ?? '-' }}</div>
+          <div class="macro-sub">Pending: {{ pendingProtein ?? '-' }}</div>
+        </div>
+        <div class="macro-card">
+          <div class="macro-label">Target Carbs (g)</div>
+          <div class="macro-value">{{ targetCarbs ?? '-' }}</div>
+          <div class="macro-sub">Pending: {{ pendingCarbs ?? '-' }}</div>
+        </div>
+        <div class="macro-card">
+          <div class="macro-label">Target Fats (g)</div>
+          <div class="macro-value">{{ targetFats ?? '-' }}</div>
+          <div class="macro-sub">Pending: {{ pendingFats ?? '-' }}</div>
+        </div>
+      </div>
+
+      <div *ngIf="!hasPlan" class="state-inline">
+        This member has no diet plan yet. Add details above and create one.
+      </div>
+
+      <div class="top-actions" *ngIf="!hasPlan">
+        <button class="btn btn-primary" (click)="save()" [disabled]="loading || !title">
+          {{ loading ? 'Creating...' : 'Create Diet Plan' }}
+        </button>
+      </div>
+
+      <div *ngIf="hasPlan && planId">
+
+        <div *ngIf="dietMeals.length === 0" class="state-inline">
+          No meals added yet.
+          <button type="button" class="btn btn-secondary" (click)="addMeal()">+ Add First Meal</button>
+        </div>
+
+        <div *ngIf="dietMeals.length > 0" class="meal-stack scrollable">
+          <div *ngFor="let meal of dietMeals; let mealIndex = index" class="meal-block">
+            <div class="meal-header">
+              <div class="field-group">
+                <label>Meal</label>
+                <input
+                  class="meal-title-input"
+                  [(ngModel)]="meal.mealType"
+                  (ngModelChange)="updateMealName(mealIndex)"
+                  placeholder="e.g. Breakfast" />
+              </div>
+              <div class="meal-actions">
+                <button type="button" class="btn btn-secondary" (click)="moveMealUp(mealIndex)">Move Up</button>
+                <button type="button" class="btn btn-secondary" (click)="moveMealDown(mealIndex)">Move Down</button>
+                <button type="button" class="btn btn-secondary" (click)="addFoodRow(mealIndex)">+ Add Food</button>
+                <button type="button" class="btn btn-danger" (click)="removeMeal(mealIndex)">Remove Meal</button>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="diet-grid">
+                <thead>
+                  <tr>
+                    <th>Food</th>
+                    <th>Qty</th>
+                    <th>Unit</th>
+                    <th>Protein</th>
+                    <th>Carbs</th>
+                    <th>Fat</th>
+                    <th>Calories</th>
+                    <th></th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr *ngFor="let row of meal.rows; let rowIndex = index">
+                    <td class="food-cell">
+                      <input
+                        [(ngModel)]="row.foodName"
+                        [attr.list]="'diet-library-foods'"
+                        (input)="onFoodNameInput(row)"
+                        (blur)="applyLibraryFoodByName(row)"
+                        placeholder="Type to search from Diet Library" />
+                      <datalist id="diet-library-foods">
+                        <option *ngFor="let f of dietLibraryFoods" [value]="f.foodItem">
+                          {{ f.category }} | Cal {{ f.calories }} | C {{ f.carbs }} | P {{ f.protein }} | F {{ f.fats }}
+                        </option>
+                      </datalist>
+                    </td>
+                    <td><input type="number" [(ngModel)]="row.quantity" (ngModelChange)="onQuantityChanged(row)" /></td>
+                    <td><input [(ngModel)]="row.unit" /></td>
+                    <td><input type="number" [(ngModel)]="row.protein" /></td>
+                    <td><input type="number" [(ngModel)]="row.carbs" /></td>
+                    <td><input type="number" [(ngModel)]="row.fat" /></td>
+                    <td class="cal-cell">{{ displayCalories(row) }}</td>
+                    <td>
+                      <button type="button" class="row-remove" (click)="removeFoodRow(mealIndex, rowIndex)">Remove</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="totals-card">
+            <div class="totals-label">Totals</div>
+            <div class="totals-grid">
+              <div>
+                <span>Protein</span>
+                <strong>{{ totalProtein }}</strong>
+              </div>
+              <div>
+                <span>Carbs</span>
+                <strong>{{ totalCarbs }}</strong>
+              </div>
+              <div>
+                <span>Fat</span>
+                <strong>{{ totalFat }}</strong>
+              </div>
+              <div>
+                <span>Calories</span>
+                <strong>{{ totalCalories }}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bottom-actions" *ngIf="dietMeals.length > 0">
+          <button type="button" class="btn btn-secondary" (click)="addMeal()">+ Add Meal</button>
+
+          <div class="right-actions">
+            <button class="btn btn-primary" (click)="save()" [disabled]="loading">
+              {{ loading ? 'Saving...' : 'Save Diet Plan' }}
+            </button>
+            <button type="button" class="btn btn-danger" (click)="deletePlan()" [disabled]="loading">
+              Delete Diet Plan
+            </button>
+          </div>
+        </div>
+      </div>
+    </fieldset>
   </section>
+
+  <div *ngIf="successMessage" class="success-card">
+    {{ successMessage }}
+  </div>
 
   <div *ngIf="error" class="error-card">
     {{ error }}

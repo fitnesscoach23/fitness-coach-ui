@@ -256,6 +256,106 @@ label {
   align-self: start;
 }
 
+/* BODY METRICS */
+
+.body-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.body-metrics-grid .card {
+  margin: 0;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.metrics-field {
+  display: grid;
+  gap: 6px;
+}
+
+.metrics-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metrics-field input,
+.metrics-field select {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.metrics-checkbox {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.metrics-actions {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.metrics-action-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.metrics-message {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.metrics-reference {
+  margin-top: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #f9fafb;
+}
+
+.metrics-reference-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.metrics-reference-grid {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.metrics-reference-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 /* CARD TITLE */
 
 .card-title {

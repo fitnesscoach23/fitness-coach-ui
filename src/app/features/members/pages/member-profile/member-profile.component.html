@@ -94,6 +94,12 @@
   </button>
 
   <button
+    [class.active]="activeSection === 'bodyMetrics'"
+    (click)="setSection('bodyMetrics')">
+    Body Metrics
+  </button>
+
+  <button
     [class.active]="activeSection === 'billing'"
     (click)="setSection('billing')">
     Billing
@@ -225,6 +231,167 @@
   </div>
 
 </div>
+
+  <!-- ================= BODY METRICS ================= -->
+  <div *ngIf="activeSection === 'bodyMetrics'" class="body-metrics-grid">
+    <div class="card">
+      <div class="card-title">Inputs</div>
+
+      <div class="metrics-grid">
+        <div class="metrics-field">
+          <label>Height (cm)</label>
+          <input type="number" [(ngModel)]="bodyMetrics.heightCm" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()" />
+        </div>
+        <div class="metrics-field">
+          <label>Current Weight (kg)</label>
+          <input type="number" [(ngModel)]="bodyMetrics.currentWeightKg" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()" />
+        </div>
+        <div class="metrics-field">
+          <label>Gender</label>
+          <select [(ngModel)]="bodyMetrics.gender" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()">
+            <option value="">Select</option>
+            <option>Male</option>
+            <option>Female</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="metrics-field">
+          <label>Age</label>
+          <input type="number" [(ngModel)]="bodyMetrics.age" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()" />
+        </div>
+      </div>
+
+      <label class="metrics-checkbox">
+        <input type="checkbox" [(ngModel)]="bodyMetrics.isLean" (change)="bodyMetricsAutoCalc && recalculateBodyMetrics()" />
+        Lean (keep IBW = current weight)
+      </label>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Energy Calculations</div>
+
+      <div class="metrics-grid">
+        <div class="metrics-field">
+          <label>Activity Factor</label>
+          <select [(ngModel)]="bodyMetrics.activityFactor" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()">
+            <option *ngFor="let option of activityOptions" [ngValue]="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+        <div class="metrics-field">
+          <label>IBW (kg)</label>
+          <input type="number" [(ngModel)]="bodyMetrics.ibwKg" />
+        </div>
+        <div class="metrics-field">
+          <label>BMI</label>
+          <input type="number" [(ngModel)]="bodyMetrics.bmi" />
+        </div>
+        <div class="metrics-field">
+          <label>BMR</label>
+          <input type="number" [(ngModel)]="bodyMetrics.bmr" />
+        </div>
+        <div class="metrics-field">
+          <label>TDEE</label>
+          <input type="number" [(ngModel)]="bodyMetrics.tdee" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Target Calories</div>
+
+      <div class="metrics-grid">
+        <div class="metrics-field">
+          <label>Goal</label>
+          <select [(ngModel)]="bodyMetrics.targetGoal" (ngModelChange)="onGoalChange()">
+            <option *ngFor="let goal of targetGoalOptions" [ngValue]="goal.value">
+              {{ goal.label }}
+            </option>
+          </select>
+        </div>
+        <div class="metrics-field">
+          <label>Calorie Factor (per lb IBW)</label>
+          <input type="number" [(ngModel)]="bodyMetrics.targetCalorieFactor" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()" />
+        </div>
+        <div class="metrics-field">
+          <label>Target Calories</label>
+          <input type="number" [(ngModel)]="bodyMetrics.targetCalories" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Macro Targets</div>
+
+      <div class="metrics-grid">
+        <div class="metrics-field">
+          <label>Protein RDA (g/kg)</label>
+          <input type="number" step="0.1" [(ngModel)]="bodyMetrics.proteinRda" (ngModelChange)="onTrainingHistoryChange()" />
+        </div>
+        <div class="metrics-field">
+          <label>Carb Factor (g/kg IBW)</label>
+          <input type="number" step="0.1" [(ngModel)]="bodyMetrics.carbFactor" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()" />
+        </div>
+        <div class="metrics-field">
+          <label>Protein (g)</label>
+          <input type="number" [(ngModel)]="bodyMetrics.proteinGrams" />
+        </div>
+        <div class="metrics-field">
+          <label>Carbs (g)</label>
+          <input type="number" [(ngModel)]="bodyMetrics.carbsGrams" />
+        </div>
+        <div class="metrics-field">
+          <label>Fats (g)</label>
+          <input type="number" [(ngModel)]="bodyMetrics.fatsGrams" />
+        </div>
+      </div>
+
+      <div class="metrics-reference">
+        <div class="metrics-reference-title">Training History Reference (Protein RDA)</div>
+        <div class="metrics-reference-grid">
+          <div class="metrics-reference-row">
+            <span> Sedentary </span>
+            <span>0.8-1.0 g/kg bw</span>
+          </div>
+          <div class="metrics-reference-row">
+            <span>Beginner/Females</span>
+            <span>1.0-1.3 g/kg bw</span>
+          </div>
+          <div class="metrics-reference-row">
+            <span>Intermediate</span>
+            <span>1.5-1.8 g/kg bw</span>
+          </div>
+          <div class="metrics-reference-row">
+            <span>Advance</span>
+            <span>1.6-2.0 g/kg bw</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="metrics-actions">
+        <label class="metrics-checkbox">
+          <input type="checkbox" [(ngModel)]="bodyMetricsAutoCalc" />
+          Auto-calculate
+        </label>
+        <div class="metrics-action-buttons">
+          <button type="button" class="secondary-btn" (click)="recalculateBodyMetrics()">
+          Recalculate
+          </button>
+          <button
+            type="button"
+            class="primary-btn"
+            [disabled]="bodyMetricsSaving"
+            (click)="saveBodyMetrics()">
+            {{ bodyMetricsSaving ? 'Saving...' : 'Save' }}
+          </button>
+        </div>
+      </div>
+      <div *ngIf="bodyMetricsMessage" class="metrics-message">
+        {{ bodyMetricsMessage }}
+      </div>
+    </div>
+  </div>
 
   <!-- ================= BILLING ================= -->
  <div *ngIf="activeSection === 'billing'" class="billing-layout">

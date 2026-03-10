@@ -30,6 +30,19 @@ getMemberById(memberId: string) {
   );
 }
 
+getBodyMetrics(memberId: string) {
+  return this.http.get(
+    `${environment.memberApi}/members/${memberId}/body-metrics`
+  );
+}
+
+updateBodyMetrics(memberId: string, payload: any) {
+  return this.http.put(
+    `${environment.memberApi}/members/${memberId}/body-metrics`,
+    payload
+  );
+}
+
 updateMember(memberId: string, payload: any) {
   return this.http.put(
     `${environment.memberApi}/members/${memberId}`,

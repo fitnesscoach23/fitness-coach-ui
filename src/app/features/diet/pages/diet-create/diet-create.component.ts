@@ -26,6 +26,11 @@ interface DietRow {
   calories: number | null;
 }
 
+interface DietMealGroup {
+  mealType: string;
+  rows: DietRow[];
+}
+
 @Component({
   standalone: true,
   imports: [CommonModule, FormsModule],
@@ -41,14 +46,20 @@ export class DietCreateComponent implements OnInit {
   notes = '';
   loading = false;
   error: string | null = null;
+  successMessage: string | null = null;
+  isEditing = true;
   planId: string | null = null;
-  dietRows: DietRow[] = [];
+  dietMeals: DietMealGroup[] = [];
   members: any[] = [];
   dietLibraryFoods: any[] = [];
   loadingDietLibraryFoods = false;
   selectedMemberId: string | null = null;
   hasPlan = false;
   memberSelected = false;
+  targetCalories: number | null = null;
+  targetProtein: number | null = null;
+  targetCarbs: number | null = null;
+  targetFats: number | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -96,6 +107,8 @@ save() {
   if (!this.title) return;
 
   this.loading = true;
+  this.error = null;
+  this.successMessage = null;
 
   const payload = {
     memberId: this.selectedMemberId,
@@ -114,6 +127,7 @@ save() {
       next: (id: string) => {
         this.planId = this.normalizePlanId(id);
         this.hasPlan = !!this.planId;
+        this.isEditing = true;
         this.saveFullPlan(payload);
       },
       error: () => {
@@ -127,62 +141,105 @@ save() {
 }
 
 
-  mapPlanToRows(plan: any): DietRow[] {
-  const rows: DietRow[] = [];
+  mapPlanToMeals(plan: any): DietMealGroup[] {
+    const meals: DietMealGroup[] = [];
 
-  for (const meal of plan.meals || []) {
-    for (const item of meal.items || []) {
-      rows.push({
-        mealType: meal.mealName,
-        foodName: item.foodName,
-        dietLibraryFoodId: null,
-        libraryBaseQuantity: null,
-        libraryBaseUnit: null,
-        libraryBaseCalories: null,
-        libraryBaseCarbs: null,
-        libraryBaseProtein: null,
-        libraryBaseFat: null,
-        quantity: item.quantity,
-        unit: item.unit,
-        protein: item.protein,
-        carbs: item.carbs,
-        fat: item.fat,
-        calories: item.calories ?? this.calculateCalories({
+    for (const meal of plan.meals || []) {
+      const rows: DietRow[] = [];
+      for (const item of meal.items || []) {
+        rows.push({
           mealType: meal.mealName,
           foodName: item.foodName,
+          dietLibraryFoodId: null,
+          libraryBaseQuantity: null,
+          libraryBaseUnit: null,
+          libraryBaseCalories: null,
+          libraryBaseCarbs: null,
+          libraryBaseProtein: null,
+          libraryBaseFat: null,
           quantity: item.quantity,
           unit: item.unit,
           protein: item.protein,
           carbs: item.carbs,
           fat: item.fat,
-          calories: null
-        })
+          calories: item.calories ?? this.calculateCalories({
+            mealType: meal.mealName,
+            foodName: item.foodName,
+            quantity: item.quantity,
+            unit: item.unit,
+            protein: item.protein,
+            carbs: item.carbs,
+            fat: item.fat,
+            calories: null
+          })
+        });
+      }
+      meals.push({
+        mealType: meal.mealName,
+        rows
       });
+    }
+
+    return meals;
+  }
+
+  private createEmptyRow(mealType: string): DietRow {
+    return {
+      mealType,
+      foodName: '',
+      dietLibraryFoodId: null,
+      libraryBaseQuantity: null,
+      libraryBaseUnit: null,
+      libraryBaseCalories: null,
+      libraryBaseCarbs: null,
+      libraryBaseProtein: null,
+      libraryBaseFat: null,
+      quantity: null,
+      unit: '',
+      protein: null,
+      carbs: null,
+      fat: null,
+      calories: null
+    };
+  }
+
+  addMeal() {
+    this.dietMeals.push({
+      mealType: '',
+      rows: [this.createEmptyRow('')]
+    });
+    this.persistMealOrder();
+  }
+
+  addFoodRow(mealIndex: number) {
+    const meal = this.dietMeals[mealIndex];
+    if (!meal) return;
+    meal.rows.push(this.createEmptyRow(meal.mealType));
+  }
+
+  updateMealName(mealIndex: number) {
+    const meal = this.dietMeals[mealIndex];
+    if (!meal) return;
+    meal.rows.forEach((row) => {
+      row.mealType = meal.mealType;
+    });
+    this.persistMealOrder();
+  }
+
+  removeFoodRow(mealIndex: number, rowIndex: number) {
+    const meal = this.dietMeals[mealIndex];
+    if (!meal) return;
+    meal.rows.splice(rowIndex, 1);
+    if (meal.rows.length === 0) {
+      this.dietMeals.splice(mealIndex, 1);
+      this.persistMealOrder();
     }
   }
 
-  return rows;
-}
-
-addRow() {
-  this.dietRows.push({
-    mealType: '',
-    foodName: '',
-    dietLibraryFoodId: null,
-    libraryBaseQuantity: null,
-    libraryBaseUnit: null,
-    libraryBaseCalories: null,
-    libraryBaseCarbs: null,
-    libraryBaseProtein: null,
-    libraryBaseFat: null,
-    quantity: null,
-    unit: '',
-    protein: null,
-    carbs: null,
-    fat: null,
-    calories: null
-  });
-}
+  removeMeal(mealIndex: number) {
+    this.dietMeals.splice(mealIndex, 1);
+    this.persistMealOrder();
+  }
 
 calculateCalories(row: DietRow): number {
   const p = row.protein || 0;
@@ -196,14 +253,46 @@ displayCalories(row: DietRow): number {
 }
 
 get totalCalories(): number {
-  return this.dietRows.reduce(
+  return this.allDietRows.reduce(
     (sum, row) => sum + this.displayCalories(row),
     0
   );
 }
 
+get totalProtein(): number {
+  return this.allDietRows.reduce((sum, row) => sum + (row.protein || 0), 0);
+}
+
+get totalCarbs(): number {
+  return this.allDietRows.reduce((sum, row) => sum + (row.carbs || 0), 0);
+}
+
+get totalFat(): number {
+  return this.allDietRows.reduce((sum, row) => sum + (row.fat || 0), 0);
+}
+
+get pendingCalories(): number | null {
+  if (this.targetCalories == null) return null;
+  return this.targetCalories - this.totalCalories;
+}
+
+get pendingProtein(): number | null {
+  if (this.targetProtein == null) return null;
+  return this.targetProtein - this.totalProtein;
+}
+
+get pendingCarbs(): number | null {
+  if (this.targetCarbs == null) return null;
+  return this.targetCarbs - this.totalCarbs;
+}
+
+get pendingFats(): number | null {
+  if (this.targetFats == null) return null;
+  return this.targetFats - this.totalFat;
+}
+
 toPayloadRows() {
-  return this.dietRows.map(row => ({
+  return this.allDietRows.map(row => ({
     mealType: row.mealType,
     foodName: row.foodName,
     quantity: row.quantity,
@@ -215,12 +304,18 @@ toPayloadRows() {
   }));
 }
 
+get allDietRows(): DietRow[] {
+  return this.dietMeals.flatMap((meal) => meal.rows);
+}
+
 saveFullPlan(payload: any) {
   this.dietApi.saveDietPlanFull(this.planId!, payload)
     .pipe(finalize(() => this.loading = false))
     .subscribe({
       next: () => {
-        // success — stay on page
+        this.successMessage = 'Diet plan saved successfully';
+        this.isEditing = false;
+        this.persistMealOrder();
       },
       error: () => {
         this.error = 'Failed to save diet plan';
@@ -344,6 +439,7 @@ onMemberChange() {
 
   this.memberSelected = true;
   this.resetPlan();
+  this.loadMemberTargets();
 
   const memberId = this.selectedMemberId;
 
@@ -354,23 +450,72 @@ onMemberChange() {
       this.planId = resolvedPlanId;
       this.title = plan?.title || '';
       this.notes = plan?.notes || '';
-      this.dietRows = this.hasPlan ? this.mapPlanToRows(plan) : [];
+      this.dietMeals = this.hasPlan ? this.mapPlanToMeals(plan) : [];
+      this.applyStoredMealOrder();
+      this.isEditing = !this.hasPlan;
     },
     error: () => {
       // no plan exists
       this.hasPlan = false;
+      this.isEditing = true;
+    }
+  });
+}
+
+loadMemberTargets() {
+  if (!this.selectedMemberId) {
+    this.targetCalories = null;
+    this.targetProtein = null;
+    this.targetCarbs = null;
+    this.targetFats = null;
+    return;
+  }
+
+  this.memberApi.getMemberById(this.selectedMemberId).subscribe({
+    next: (res: any) => {
+      this.targetCalories = this.toNumberOrNull(res?.bodyMetrics?.targetCalories);
+      this.targetProtein = this.toNumberOrNull(res?.bodyMetrics?.proteinGrams);
+      this.targetCarbs = this.toNumberOrNull(res?.bodyMetrics?.carbsGrams);
+      this.targetFats = this.toNumberOrNull(res?.bodyMetrics?.fatsGrams);
+    },
+    error: () => {
+      this.targetCalories = null;
+      this.targetProtein = null;
+      this.targetCarbs = null;
+      this.targetFats = null;
     }
   });
 }
 
 
-resetPlan() {
+  resetPlan() {
   this.planId = null;
   this.title = '';
   this.notes = '';
-  this.dietRows = [];
+  this.dietMeals = [];
   this.hasPlan = false;
   this.error = null;
+  this.successMessage = null;
+  this.isEditing = true;
+}
+
+startEditing() {
+  if (!this.hasPlan) return;
+  this.isEditing = true;
+}
+
+moveMealUp(index: number) {
+  if (index <= 0) return;
+  const [meal] = this.dietMeals.splice(index, 1);
+  this.dietMeals.splice(index - 1, 0, meal);
+  this.persistMealOrder();
+}
+
+moveMealDown(index: number) {
+  if (index >= this.dietMeals.length - 1) return;
+  const [meal] = this.dietMeals.splice(index, 1);
+  this.dietMeals.splice(index + 1, 0, meal);
+  this.persistMealOrder();
 }
 
 
@@ -397,11 +542,51 @@ deletePlan() {
     });
 }
 
-private normalizePlanId(rawId: any): string | null {
-  if (rawId == null) return null;
-  const normalized = String(rawId).replace(/"/g, '').trim();
-  return normalized || null;
-}
+  private normalizePlanId(rawId: any): string | null {
+    if (rawId == null) return null;
+    const normalized = String(rawId).replace(/"/g, '').trim();
+    return normalized || null;
+  }
+
+  private getMealOrderStorageKey(): string | null {
+    if (!this.selectedMemberId || !this.planId) return null;
+    return `dietMealOrder:${this.selectedMemberId}:${this.planId}`;
+  }
+
+  private persistMealOrder() {
+    const key = this.getMealOrderStorageKey();
+    if (!key || typeof window === 'undefined') return;
+    const order = this.dietMeals
+      .map((meal) => meal.mealType)
+      .filter((name) => typeof name === 'string' && name.trim().length > 0);
+    try {
+      window.localStorage.setItem(key, JSON.stringify(order));
+    } catch {
+      // ignore storage failures
+    }
+  }
+
+  private applyStoredMealOrder() {
+    const key = this.getMealOrderStorageKey();
+    if (!key || typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return;
+      const order: string[] = JSON.parse(raw);
+      if (!Array.isArray(order) || order.length === 0) return;
+      const orderIndex = new Map(order.map((name, idx) => [name, idx]));
+      this.dietMeals.sort((a, b) => {
+        const ai = orderIndex.get(a.mealType);
+        const bi = orderIndex.get(b.mealType);
+        if (ai == null && bi == null) return 0;
+        if (ai == null) return 1;
+        if (bi == null) return -1;
+        return ai - bi;
+      });
+    } catch {
+      // ignore storage failures
+    }
+  }
 
 
 
