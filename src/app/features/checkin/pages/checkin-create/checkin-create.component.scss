@@ -9,7 +9,8 @@
 .hero-card,
 .editor-card,
 .alert,
-.import-card {
+.import-card,
+.history-card {
   background: var(--bg-card, #ffffff);
   border: 1px solid var(--border-light, #e5e7eb);
   border-radius: 14px;
@@ -53,6 +54,10 @@
 
 .import-card {
   padding: 18px 20px;
+}
+
+.history-card {
+  padding: 20px 22px;
 }
 
 .import-row {
@@ -257,6 +262,74 @@
   justify-content: flex-end;
 }
 
+.submit-success {
+  margin-top: 14px;
+}
+
+.history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.history-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  display: grid;
+  gap: 8px;
+}
+
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.history-date {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.history-delete-btn {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #fecaca;
+  background: #fff5f5;
+  color: #b91c1c;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.history-delete-btn:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.history-delete-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.history-metrics {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  color: #374151;
+}
+
+.history-notes {
+  color: #4b5563;
+  white-space: pre-line;
+}
+
+.history-state {
+  color: var(--text-secondary, #6b7280);
+}
+
 @media (max-width: 900px) {
   .checkin-create-page {
     padding: 14px;
@@ -284,5 +357,10 @@
 
   .form-actions {
     justify-content: flex-start;
+  }
+
+  .history-head {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

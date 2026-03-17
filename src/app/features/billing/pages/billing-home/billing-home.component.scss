@@ -89,6 +89,7 @@
 
 .compact-grid {
   margin-top: 16px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* LABEL */
@@ -192,12 +193,28 @@ select:focus {
 
 /* INLINE FORM */
 .inline-form {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
+  align-items: stretch;
+  min-width: 0;
 }
 
 .inline-form input {
-  flex: 1;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.inline-form .primary-btn,
+.inline-form .secondary-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  width: auto;
+}
+
+.compact-grid > div {
+  min-width: 0;
 }
 
 /* INFO + ERROR */
@@ -366,6 +383,24 @@ select:focus {
   margin-right: 8px;
 }
 
+.danger-btn {
+  border-color: #fecaca;
+  color: #b91c1c;
+  background: #fff5f5;
+}
+
+.danger-btn:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.payment-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
 /* STATE */
 .state {
   font-size: 14px;
@@ -388,6 +423,6 @@ select:focus {
   }
 
   .inline-form {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 }

@@ -145,6 +145,14 @@ label {
   margin-top: 14px;
 }
 
+.progress-photo-item {
+  cursor: grab;
+}
+
+.progress-photo-item:active {
+  cursor: grabbing;
+}
+
 .progress-photo {
   width: 100px;
   height: 100px;

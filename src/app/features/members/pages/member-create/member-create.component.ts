@@ -178,6 +178,10 @@ export class MemberCreateComponent {
       return this.normalizeDateValue(rawValue);
     }
 
+    if (field.type === 'number') {
+      return this.normalizeNumberValue(rawValue);
+    }
+
     return rawValue;
   }
 
@@ -201,6 +205,20 @@ export class MemberCreateComponent {
     }
 
     return '';
+  }
+
+  private normalizeNumberValue(value: any): number | '' {
+    if (value == null || value === '') return '';
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+
+    const cleaned = String(value).replace(/[^0-9.-]/g, '');
+    if (!cleaned) return '';
+
+    const numeric = Number(cleaned);
+    return Number.isFinite(numeric) ? numeric : '';
   }
 
   submit() {

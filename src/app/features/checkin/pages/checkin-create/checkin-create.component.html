@@ -10,10 +10,6 @@
     {{ error }}
   </div>
 
-  <div *ngIf="success" class="alert success">
-    Check-in submitted successfully.
-  </div>
-
   <section class="import-card">
     <div class="section-heading">
       <h2>Prefill from Excel</h2>
@@ -38,7 +34,7 @@
         [value]="selectedResponseIndex"
         (change)="applyResponseAtIndex(($any($event.target).value))">
         <option *ngFor="let row of parsedResponses; let i = index" [value]="i">
-          Row {{ i + 2 }} - {{ row.memberName || 'Unnamed' }}
+          {{ formatImportRowLabel(row) }}
         </option>
       </select>
     </div>
@@ -174,5 +170,45 @@
         {{ loading ? 'Submitting...' : 'Submit Check-in' }}
       </button>
     </div>
+
+    <div *ngIf="success" class="alert success submit-success">
+      Check-in submitted successfully.
+    </div>
   </form>
+
+  <section class="history-card" *ngIf="memberId || memberHistory.length">
+    <div class="section-heading">
+      <h2>Check-in History</h2>
+      <p>Recent check-ins for the selected member.</p>
+    </div>
+
+    <div *ngIf="historyLoading" class="history-state">Loading history...</div>
+    <div *ngIf="historyError" class="error-inline">{{ historyError }}</div>
+
+    <div *ngIf="!historyLoading && !historyError && memberHistory.length" class="history-list">
+      <article class="history-item" *ngFor="let item of memberHistory">
+        <div class="history-head">
+          <div class="history-date">{{ formatHistoryDate(item.submittedAt) }}</div>
+          <button
+            type="button"
+            class="history-delete-btn"
+            [disabled]="deletingCheckinId === item.id"
+            (click)="deleteHistoryItem(item.id)">
+            {{ deletingCheckinId === item.id ? 'Deleting...' : 'Delete' }}
+          </button>
+        </div>
+        <div class="history-metrics">
+          <span *ngIf="item.weight != null"><b>Weight:</b> {{ item.weight }} kg</span>
+          <span *ngIf="item.dietAdherence != null"><b>Diet:</b> {{ item.dietAdherence }}/10</span>
+          <span *ngIf="item.stepsAvg != null"><b>Steps:</b> {{ item.stepsAvg }}</span>
+          <span *ngIf="item.energy != null"><b>Energy:</b> {{ item.energy }}/10</span>
+        </div>
+        <div *ngIf="item.notes" class="history-notes">{{ item.notes }}</div>
+      </article>
+    </div>
+
+    <div *ngIf="!historyLoading && !historyError && !memberHistory.length" class="history-state">
+      No check-in history found for this member.
+    </div>
+  </section>
 </div>

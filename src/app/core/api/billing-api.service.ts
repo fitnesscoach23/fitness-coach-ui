@@ -43,6 +43,11 @@ startOnlinePayment(memberId: string, amount: number) {
   );
 }
 
-
+deletePayment(paymentId: string) {
+  return this.http.delete(
+    `${environment.billingApi}/billing/payment/${paymentId}`,
+    { responseType: 'text' }
+  );
+}
 
 }

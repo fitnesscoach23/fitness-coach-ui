@@ -26,6 +26,7 @@ export class ProgressCheckinApiService {
     energy?: number | null;
     stepsAvg?: number | null;
     notes?: string;
+    submittedAt?: string | null;
   }) {
     return this.http.post(
       `${environment.checkinApi}/progress/checkins`,
@@ -38,6 +39,13 @@ export class ProgressCheckinApiService {
   getCheckinsByMember(memberId: string): Observable<ProgressCheckin[]> {
     return this.http.get<ProgressCheckin[]>(
       `${environment.checkinApi}/progress/checkins/member/${memberId}`
+    );
+  }
+
+  deleteCheckin(checkInId: string) {
+    return this.http.delete(
+      `${environment.checkinApi}/progress/checkins/${checkInId}`,
+      { responseType: 'text' }
     );
   }
 }

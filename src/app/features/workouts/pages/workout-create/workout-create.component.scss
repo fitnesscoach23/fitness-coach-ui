@@ -219,6 +219,20 @@
   flex-wrap: wrap;
 }
 
+.copy-day-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.copy-day-controls select {
+  min-width: 150px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
 .add-day-btn {
   justify-self: start;
 }
@@ -247,6 +261,14 @@
 
 .workout-grid tr:last-child td {
   border-bottom: 0;
+}
+
+.draggable-row {
+  cursor: grab;
+}
+
+.draggable-row:active {
+  cursor: grabbing;
 }
 
 .workout-grid input {

@@ -50,6 +50,8 @@ export class BillingHomeComponent implements OnInit {
   paymentAmount: number | null = null;
   paymentActionLoading = false;
   paymentActionError: string | null = null;
+  deletingPaymentId: string | null = null;
+  deletePaymentError: string | null = null;
 
   onlineAmount: number | null = null;
   onlinePaymentLoading = false;
@@ -181,7 +183,6 @@ export class BillingHomeComponent implements OnInit {
     const requests = this.members.map((member) =>
       this.fetchBillingBundle(member.id).pipe(
         map(({ subscription, payments }) => {
-          const override = this.getStoredOverride(member.id);
           const totalPaid = (payments || [])
             .filter((p: any) => p.status === 'SUCCESS')
             .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
@@ -195,7 +196,7 @@ export class BillingHomeComponent implements OnInit {
             email: member.email,
             planName: subscription?.planName || 'No Plan',
             status: subscription?.status || 'NO_PLAN',
-            renewalDate: override?.renewalDate || subscription?.endDate || '-',
+            renewalDate: this.resolveRenewalDate(member.id, subscription),
             memberStatus: member.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
             totalPaid,
             totalPending
@@ -327,6 +328,19 @@ export class BillingHomeComponent implements OnInit {
     return `member_subscription_override_${memberId}`;
   }
 
+  private resolveRenewalDate(memberId: string, subscription: any): string {
+    const override = this.getStoredOverride(memberId);
+    if (override?.renewalDate) {
+      return override.renewalDate;
+    }
+
+    if (memberId === this.selectedMemberId && this.displayedRenewalDate && this.displayedRenewalDate !== '-') {
+      return this.displayedRenewalDate;
+    }
+
+    return subscription?.endDate || '-';
+  }
+
   private normalizeDateInput(value: string): string {
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return '';
@@ -358,6 +372,26 @@ export class BillingHomeComponent implements OnInit {
       next: () => {
         this.loadSelectedMemberBilling();
         this.loadAllMemberBilling();
+      }
+    });
+  }
+
+  deletePayment(paymentId: string): void {
+    const confirmed = window.confirm('Delete this payment history entry? This action cannot be undone.');
+    if (!confirmed) return;
+
+    this.deletingPaymentId = paymentId;
+    this.deletePaymentError = null;
+
+    this.billingApi.deletePayment(paymentId).subscribe({
+      next: () => {
+        this.deletingPaymentId = null;
+        this.loadSelectedMemberBilling();
+        this.loadAllMemberBilling();
+      },
+      error: () => {
+        this.deletingPaymentId = null;
+        this.deletePaymentError = 'Failed to delete payment history';
       }
     });
   }

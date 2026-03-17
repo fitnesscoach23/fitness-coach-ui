@@ -40,6 +40,8 @@ interface MuscleGroupSummary {
 export class WorkoutCreateComponent implements OnInit {
   private readonly rowIdentityMap = new WeakMap<WorkoutGridRow, number>();
   private rowIdentityCounter = 0;
+  private draggedRowContext: { rows: WorkoutGridRow[]; row: WorkoutGridRow } | null = null;
+  private readonly copyDaySelectionMap = new WeakMap<WorkoutGridRow[], Map<string, string>>();
 
   members: any[] = [];
 
@@ -271,12 +273,93 @@ removeDayFromRows(rows: WorkoutGridRow[], dayName: string) {
   rows.splice(0, rows.length, ...remainingRows);
 }
 
+getCopySourceOptions(rows: WorkoutGridRow[], targetDayName: string): string[] {
+  return this.getGroupedRows(rows)
+    .map((group) => group.dayName)
+    .filter((dayName) => dayName !== targetDayName);
+}
+
+getCopySourceValue(rows: WorkoutGridRow[], targetDayName: string): string {
+  return this.getDayCopySelections(rows).get(targetDayName) || '';
+}
+
+setCopySourceValue(rows: WorkoutGridRow[], targetDayName: string, sourceDayName: string): void {
+  this.getDayCopySelections(rows).set(targetDayName, sourceDayName);
+}
+
+copyDayRows(rows: WorkoutGridRow[], targetDayName: string): void {
+  const sourceDayName = this.getCopySourceValue(rows, targetDayName);
+  if (!sourceDayName || sourceDayName === targetDayName) return;
+
+  const sourceRows = rows
+    .filter((row) => row.dayName === sourceDayName)
+    .map((row) => ({
+      ...row,
+      dayName: targetDayName
+    }));
+
+  if (!sourceRows.length) return;
+
+  const hasTargetRows = rows.some((row) => row.dayName === targetDayName);
+  if (hasTargetRows) {
+    const confirmed = window.confirm(
+      `Replace all rows in "${targetDayName}" with exercises from "${sourceDayName}"?`
+    );
+    if (!confirmed) return;
+  }
+
+  const firstTargetIndex = rows.findIndex((row) => row.dayName === targetDayName);
+  const insertIndex =
+    firstTargetIndex >= 0
+      ? rows.slice(0, firstTargetIndex).filter((row) => row.dayName !== targetDayName).length
+      : rows.length;
+
+  const remainingRows = rows.filter((row) => row.dayName !== targetDayName);
+  remainingRows.splice(insertIndex, 0, ...sourceRows);
+  rows.splice(0, rows.length, ...remainingRows);
+}
+
 trackByDayGroup(_index: number, group: WorkoutDayGroup) {
   return group.dayName;
 }
 
 trackByWorkoutRow(_index: number, row: WorkoutGridRow) {
   return this.getRowIdentity(row);
+}
+
+onWorkoutRowDragStart(rows: WorkoutGridRow[], row: WorkoutGridRow): void {
+  this.draggedRowContext = { rows, row };
+}
+
+onWorkoutRowDragOver(event: DragEvent): void {
+  event.preventDefault();
+}
+
+onWorkoutRowDrop(rows: WorkoutGridRow[], targetRow: WorkoutGridRow): void {
+  if (!this.draggedRowContext || this.draggedRowContext.rows !== rows) return;
+
+  const sourceRow = this.draggedRowContext.row;
+  if (sourceRow === targetRow || sourceRow.dayName !== targetRow.dayName) {
+    this.draggedRowContext = null;
+    return;
+  }
+
+  const sourceIndex = rows.indexOf(sourceRow);
+  const targetIndex = rows.indexOf(targetRow);
+  if (sourceIndex < 0 || targetIndex < 0) {
+    this.draggedRowContext = null;
+    return;
+  }
+
+  const reordered = [...rows];
+  const [movedRow] = reordered.splice(sourceIndex, 1);
+  reordered.splice(targetIndex, 0, movedRow);
+  rows.splice(0, rows.length, ...reordered);
+  this.draggedRowContext = null;
+}
+
+onWorkoutRowDragEnd(): void {
+  this.draggedRowContext = null;
 }
 
 getMuscleGroupSummary(rows: WorkoutGridRow[]): MuscleGroupSummary[] {
@@ -767,6 +850,17 @@ private getRowIdentity(row: WorkoutGridRow): number {
   }
 
   return identity;
+}
+
+private getDayCopySelections(rows: WorkoutGridRow[]): Map<string, string> {
+  let selections = this.copyDaySelectionMap.get(rows);
+
+  if (!selections) {
+    selections = new Map<string, string>();
+    this.copyDaySelectionMap.set(rows, selections);
+  }
+
+  return selections;
 }
 
 }

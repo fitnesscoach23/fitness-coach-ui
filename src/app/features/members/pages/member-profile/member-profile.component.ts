@@ -63,6 +63,7 @@ export class MemberProfileComponent implements OnInit {
   progressCheckins: any[] = [];
   progressCheckinsLoading = true;
   checkinPhotos: { [checkinId: string]: any[] } = {};
+  draggedPhoto: { checkinId: string; index: number } | null = null;
   currentCheckin: any | null = null;
   previousCheckin: any | null = null;
   activeSection: 'overview' | 'bodyMetrics' | 'billing' | 'progress' | 'workout' | 'diet' = 'overview';
@@ -71,7 +72,7 @@ export class MemberProfileComponent implements OnInit {
   latestWeight = 0;
   weightChange = 0;
   avgDietAdherence = 0;
-  avgEnergy = 0;
+  avgSteps = 0;
   deletingMember = false;
   overrideActiveSince = '';
   overrideRenewalDate = '';
@@ -1076,13 +1077,11 @@ renderWeightChart() {
 
   const sorted = [...this.progressCheckins].sort(
     (a, b) =>
-      new Date(a.submittedAt).getTime() -
-      new Date(b.submittedAt).getTime()
+      this.getCheckinDateValue(a.submittedAt) -
+      this.getCheckinDateValue(b.submittedAt)
   );
 
-  const labels = sorted.map(c =>
-    new Date(c.submittedAt).toLocaleDateString()
-  );
+  const labels = sorted.map(c => this.formatProgressCheckinDate(c.submittedAt));
   const weights = sorted.map(c => c.weight);
 
   new Chart(canvas, {
@@ -1401,8 +1400,8 @@ loadProgressCheckins() {
         // newest first
         this.progressCheckins = (res || []).sort(
           (a, b) =>
-            new Date(b.submittedAt).getTime() -
-            new Date(a.submittedAt).getTime()
+            this.getCheckinDateValue(b.submittedAt) -
+            this.getCheckinDateValue(a.submittedAt)
         );
         this.calculateProgressSummary();
         this.progressCheckinsLoading = false;
@@ -1431,8 +1430,8 @@ prepareComparison() {
 
   const sorted = [...this.progressCheckins].sort(
     (a, b) =>
-      new Date(b.submittedAt).getTime() -
-      new Date(a.submittedAt).getTime()
+      this.getCheckinDateValue(b.submittedAt) -
+      this.getCheckinDateValue(a.submittedAt)
   );
 
   this.currentCheckin = sorted[0] || null;
@@ -1457,26 +1456,82 @@ getPhotoByType(checkinId: string, type: 'FRONT' | 'SIDE' | 'BACK'): string | nul
   return photo ? photo.fileName : null;
 }
 
+onPhotoDragStart(checkinId: string, index: number): void {
+  this.draggedPhoto = { checkinId, index };
+}
+
+onPhotoDragOver(event: DragEvent): void {
+  event.preventDefault();
+}
+
+onPhotoDrop(checkinId: string, targetIndex: number): void {
+  if (!this.draggedPhoto || this.draggedPhoto.checkinId !== checkinId) return;
+
+  const photos = this.checkinPhotos[checkinId];
+  if (!photos?.length) return;
+
+  const { index: sourceIndex } = this.draggedPhoto;
+  if (sourceIndex === targetIndex || sourceIndex < 0 || targetIndex < 0) {
+    this.draggedPhoto = null;
+    return;
+  }
+
+  const reordered = [...photos];
+  const [movedPhoto] = reordered.splice(sourceIndex, 1);
+  reordered.splice(targetIndex, 0, movedPhoto);
+  this.checkinPhotos[checkinId] = reordered;
+  this.draggedPhoto = null;
+}
+
+onPhotoDragEnd(): void {
+  this.draggedPhoto = null;
+}
+
 calculateProgressSummary() {
   if (!this.progressCheckins?.length) return;
 
   const sorted = [...this.progressCheckins]
-    .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
+    .sort((a, b) => this.getCheckinDateValue(a.submittedAt) - this.getCheckinDateValue(b.submittedAt));
 
-  const first = sorted[0];
   const last = sorted[sorted.length - 1];
+  const previous = sorted.length > 1 ? sorted[sorted.length - 2] : null;
 
   this.latestWeight = last.weight || 0;
-  this.weightChange = (last.weight || 0) - (first.weight || 0);
+  this.weightChange = this.roundToTwo((last.weight || 0) - (previous?.weight || 0));
 
   const validDiet = sorted.filter(c => c.dietAdherence);
-  const validEnergy = sorted.filter(c => c.energy);
+  const validSteps = sorted.filter(c => c.stepsAvg != null);
 
   this.avgDietAdherence =
     validDiet.reduce((sum, c) => sum + c.dietAdherence, 0) / (validDiet.length || 1);
 
-  this.avgEnergy =
-    validEnergy.reduce((sum, c) => sum + c.energy, 0) / (validEnergy.length || 1);
+  this.avgSteps = this.roundToTwo(
+    validSteps.reduce((sum, c) => sum + c.stepsAvg, 0) / (validSteps.length || 1)
+  );
+}
+
+formatProgressCheckinDate(value: string | null | undefined): string {
+  if (!value) return '-';
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '-';
+
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }).format(parsed);
+}
+
+private getCheckinDateValue(value: string | null | undefined): number {
+  if (!value) return 0;
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
+private roundToTwo(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 }

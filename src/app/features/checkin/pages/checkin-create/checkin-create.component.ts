@@ -11,6 +11,7 @@ declare const XLSX: any;
 
 interface CheckinImportRow {
   memberName: string;
+  submittedAt: string | null;
   weight: number | null;
   stepsAvg: number | null;
   dietAdherence: number | null;
@@ -37,6 +38,10 @@ export class CheckinCreateComponent implements OnInit {
   excelFileName = '';
   parsedResponses: CheckinImportRow[] = [];
   selectedResponseIndex: string = '';
+  memberHistory: any[] = [];
+  historyLoading = false;
+  historyError: string | null = null;
+  deletingCheckinId: string | null = null;
 
   // form fields
   memberId: string | null = null;
@@ -47,6 +52,7 @@ export class CheckinCreateComponent implements OnInit {
   frontViewUrl = '';
   sideViewUrl = '';
   backViewUrl = '';
+  submittedAt: string | null = null;
 
   members: any[] = [];
 
@@ -78,8 +84,12 @@ export class CheckinCreateComponent implements OnInit {
       this.frontViewUrl = '';
       this.sideViewUrl = '';
       this.backViewUrl = '';
+      this.memberHistory = [];
+      this.historyError = null;
       return;
     }
+
+    this.loadMemberHistory(this.memberId);
 
     this.memberApi.getMemberById(this.memberId).subscribe({
       next: (member: any) => {
@@ -118,7 +128,10 @@ export class CheckinCreateComponent implements OnInit {
 
       this.parsedResponses = rawRows
         .map((row: any) => this.mapExcelRow(row))
-        .filter((row: CheckinImportRow) => !!row.memberName || row.weight != null);
+        .filter((row: CheckinImportRow) => !!row.memberName || row.weight != null)
+        .sort((a: CheckinImportRow, b: CheckinImportRow) =>
+          this.getDateValue(b.submittedAt) - this.getDateValue(a.submittedAt)
+        );
 
       if (!this.parsedResponses.length) {
         this.excelError = 'No valid check-in rows found in uploaded Excel.';
@@ -144,8 +157,10 @@ export class CheckinCreateComponent implements OnInit {
 
     if (member) {
       this.memberId = member.id;
+      this.loadMemberHistory(member.id);
     } else {
       this.memberId = null;
+      this.memberHistory = [];
       this.importWarning = `Could not auto-match member "${row.memberName}". Please select member manually.`;
     }
 
@@ -153,6 +168,7 @@ export class CheckinCreateComponent implements OnInit {
     this.stepsAvg = row.stepsAvg;
     this.dietAdherence = row.dietAdherence;
     this.notes = row.notes;
+    this.submittedAt = row.submittedAt;
     this.frontViewUrl = row.frontViewUrl || this.frontViewUrl;
     this.sideViewUrl = row.sideViewUrl || this.sideViewUrl;
     this.backViewUrl = row.backViewUrl || this.backViewUrl;
@@ -166,6 +182,9 @@ export class CheckinCreateComponent implements OnInit {
 
     const weight = this.parseNumber(
       this.getByHeaderContains(row, ['Current Weight'])
+    );
+    const submittedAt = this.parseExcelDate(
+      this.getByHeaderContains(row, ['Timestamp'])
     );
 
     const stepsAvg = this.parseNumber(
@@ -207,6 +226,7 @@ export class CheckinCreateComponent implements OnInit {
 
     return {
       memberName: String(memberName || ''),
+      submittedAt,
       weight,
       stepsAvg,
       dietAdherence,
@@ -243,6 +263,42 @@ export class CheckinCreateComponent implements OnInit {
     return Number.isNaN(numeric) ? null : numeric;
   }
 
+  private parseExcelDate(value: any): string | null {
+    if (value == null || value === '') return null;
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+      const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+      return Number.isNaN(date.getTime()) ? null : date.toISOString();
+    }
+
+    const raw = String(value).trim();
+    if (!raw) return null;
+
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+
+    const dateAndTimeMatch = raw.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
+    );
+
+    if (!dateAndTimeMatch) return null;
+
+    const [, month, day, year, hours = '0', minutes = '0', seconds = '0'] = dateAndTimeMatch;
+    const manualDate = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hours),
+      Number(minutes),
+      Number(seconds)
+    );
+
+    return Number.isNaN(manualDate.getTime()) ? null : manualDate.toISOString();
+  }
+
   // 🔐 single source of truth
  get photosValid(): boolean {
   return !!(
@@ -275,7 +331,8 @@ export class CheckinCreateComponent implements OnInit {
       weight: this.weight,
       dietAdherence: this.dietAdherence,
       stepsAvg: this.stepsAvg,
-      notes: this.notes
+      notes: this.notes,
+      submittedAt: this.submittedAt
     }).subscribe({
       next: (checkInId: string) => {
         const cleanId = checkInId.replace(/"/g, '');
@@ -308,18 +365,18 @@ export class CheckinCreateComponent implements OnInit {
     this.loading = false;
     this.success = true;
     this.submitAttempted = false;
+    if (this.memberId) {
+      this.loadMemberHistory(this.memberId);
+    }
     this.reset();
   }
 
   private reset() {
-    this.memberId = null;
     this.weight = null;
     this.dietAdherence = null;
     this.stepsAvg = null;
     this.notes = '';
-    this.frontViewUrl = '';
-    this.sideViewUrl = '';
-    this.backViewUrl = '';
+    this.submittedAt = null;
 
     this.frontPhoto = null;
     this.sidePhoto = null;
@@ -353,12 +410,78 @@ onPhotoSelected(
   if (type === 'BACK') this.backPhoto = file;
 }
 
-get photoStatus() {
+  get photoStatus() {
   return {
     front: !!this.frontPhoto,
     side: !!this.sidePhoto,
     back: !!this.backPhoto
   };
 }
+
+  formatHistoryDate(value: string | null | undefined): string {
+    if (!value) return '-';
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '-';
+
+    return new Intl.DateTimeFormat('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).format(parsed);
+  }
+
+  formatImportRowLabel(row: CheckinImportRow): string {
+    const memberName = row.memberName || 'Unnamed';
+    const dateLabel = this.formatHistoryDate(row.submittedAt);
+    return `${dateLabel} - ${memberName}`;
+  }
+
+  private loadMemberHistory(memberId: string) {
+    this.historyLoading = true;
+    this.historyError = null;
+
+    this.api.getCheckinsByMember(memberId).subscribe({
+      next: res => {
+        this.memberHistory = [...(res || [])].sort(
+          (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+        );
+        this.historyLoading = false;
+      },
+      error: () => {
+        this.memberHistory = [];
+        this.historyLoading = false;
+        this.historyError = 'Failed to load member check-in history';
+      }
+    });
+  }
+
+  private getDateValue(value: string | null | undefined): number {
+    if (!value) return 0;
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+  }
+
+  deleteHistoryItem(checkInId: string) {
+    if (!this.memberId) return;
+
+    const confirmed = window.confirm('Delete this check-in history entry? This action cannot be undone.');
+    if (!confirmed) return;
+
+    this.deletingCheckinId = checkInId;
+    this.historyError = null;
+
+    this.api.deleteCheckin(checkInId).subscribe({
+      next: () => {
+        this.deletingCheckinId = null;
+        this.loadMemberHistory(this.memberId!);
+      },
+      error: () => {
+        this.deletingCheckinId = null;
+        this.historyError = 'Failed to delete check-in history';
+      }
+    });
+  }
 
 }

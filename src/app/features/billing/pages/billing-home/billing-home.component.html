@@ -258,18 +258,25 @@
               </span>
             </td>
             <td>{{ p.mode }}</td>
-            <td>
+            <td class="payment-actions">
               <button
                 *ngIf="p.status === 'PENDING' && p.mode === 'MANUAL'"
                 class="secondary-btn"
                 (click)="confirmPayment(p.id)">
                 Confirm
               </button>
+              <button
+                class="secondary-btn danger-btn mini-btn"
+                [disabled]="deletingPaymentId === p.id"
+                (click)="deletePayment(p.id)">
+                {{ deletingPaymentId === p.id ? 'Deleting...' : 'Delete' }}
+              </button>
             </td>
           </tr>
         </tbody>
       </table>
 
+      <div *ngIf="deletePaymentError" class="error">{{ deletePaymentError }}</div>
       <div *ngIf="!paymentsLoading && !payments.length" class="state">No payment history found.</div>
     </div>
   </div>

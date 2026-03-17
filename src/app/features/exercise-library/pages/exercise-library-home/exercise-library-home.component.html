@@ -19,47 +19,92 @@
   </section>
 
   <section class="card form-card">
-    <h2>{{ form.id ? 'Edit Exercise' : 'Add Exercise' }}</h2>
+    <h2>{{ form.id ? 'Edit Exercise' : 'Add Exercises' }}</h2>
 
-    <div class="form-grid">
-      <div class="field-group">
-        <label for="srNo">Sr No</label>
-        <input id="srNo" type="number" [(ngModel)]="form.srNo" placeholder="1" />
+    <ng-container *ngIf="form.id; else bulkAddMode">
+      <div class="form-grid">
+        <div class="field-group">
+          <label for="muscleGroup">Muscle Group</label>
+          <input id="muscleGroup" [(ngModel)]="form.muscleGroup" placeholder="CHEST" />
+        </div>
+
+        <div class="field-group">
+          <label for="exerciseName">Exercise Name</label>
+          <input id="exerciseName" [(ngModel)]="form.exerciseName" placeholder="Flat Bench Barbell Press" />
+        </div>
+
+        <div class="field-group">
+          <label for="musclesTrained">Muscles Trained</label>
+          <textarea
+            id="musclesTrained"
+            class="muscles-textarea"
+            [(ngModel)]="form.musclesTrained"
+            rows="3"
+            placeholder="Lats&#10;Upper Back&#10;Biceps"></textarea>
+        </div>
+
+        <div class="field-group">
+          <label for="videoUrl">Video URL</label>
+          <input id="videoUrl" [(ngModel)]="form.videoUrl" placeholder="https://..." />
+        </div>
       </div>
 
-      <div class="field-group">
-        <label for="muscleGroup">Muscle Group</label>
-        <input id="muscleGroup" [(ngModel)]="form.muscleGroup" placeholder="CHEST" />
+      <div class="actions-row">
+        <button class="btn btn-primary" (click)="submitExercise()" [disabled]="savingExercise">
+          {{ savingExercise ? 'Saving...' : 'Update Exercise' }}
+        </button>
+        <button class="btn btn-secondary" (click)="cancelEdit()" [disabled]="savingExercise">Cancel</button>
+        <span class="error" *ngIf="formError">{{ formError }}</span>
+      </div>
+    </ng-container>
+
+    <ng-template #bulkAddMode>
+      <div class="bulk-rows">
+        <div class="bulk-row-card" *ngFor="let row of formRows; let i = index">
+          <div class="bulk-row-head">
+            <strong>Row {{ i + 1 }}</strong>
+            <button class="btn btn-secondary" (click)="removeRow(i)" [disabled]="savingExercise">
+              Remove
+            </button>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-group">
+              <label>Muscle Group</label>
+              <input [(ngModel)]="row.muscleGroup" placeholder="CHEST" />
+            </div>
+
+            <div class="field-group">
+              <label>Exercise Name</label>
+              <input [(ngModel)]="row.exerciseName" placeholder="Flat Bench Barbell Press" />
+            </div>
+
+            <div class="field-group">
+              <label>Muscles Trained</label>
+              <textarea
+                class="muscles-textarea"
+                [(ngModel)]="row.musclesTrained"
+                rows="3"
+                placeholder="Lats&#10;Upper Back&#10;Biceps"></textarea>
+            </div>
+
+            <div class="field-group">
+              <label>Video URL</label>
+              <input [(ngModel)]="row.videoUrl" placeholder="https://..." />
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="field-group">
-        <label for="exerciseName">Exercise Name</label>
-        <input id="exerciseName" [(ngModel)]="form.exerciseName" placeholder="Flat Bench Barbell Press" />
+      <div class="actions-row">
+        <button class="btn btn-secondary" (click)="addRow()" [disabled]="savingExercise">Add Row</button>
+        <button class="btn btn-primary" (click)="submitExercise()" [disabled]="savingExercise">
+          {{ savingExercise ? 'Saving...' : 'Save All' }}
+        </button>
+        <button class="btn btn-secondary" (click)="resetForm()" [disabled]="savingExercise">Reset</button>
+        <span class="error" *ngIf="formError">{{ formError }}</span>
       </div>
-
-      <div class="field-group">
-        <label for="musclesTrained">Muscles Trained</label>
-        <textarea
-          id="musclesTrained"
-          class="muscles-textarea"
-          [(ngModel)]="form.musclesTrained"
-          rows="3"
-          placeholder="Lats&#10;Upper Back&#10;Biceps"></textarea>
-      </div>
-
-      <div class="field-group">
-        <label for="videoUrl">Video URL</label>
-        <input id="videoUrl" [(ngModel)]="form.videoUrl" placeholder="https://..." />
-      </div>
-    </div>
-
-    <div class="actions-row">
-      <button class="btn btn-primary" (click)="submitExercise()" [disabled]="savingExercise">
-        {{ savingExercise ? 'Saving...' : (form.id ? 'Update Exercise' : 'Create Exercise') }}
-      </button>
-      <button class="btn btn-secondary" (click)="resetForm()" [disabled]="savingExercise">Reset</button>
-      <span class="error" *ngIf="formError">{{ formError }}</span>
-    </div>
+    </ng-template>
   </section>
 
   <section class="card">
@@ -70,7 +115,29 @@
       No exercises found. Import an Excel file to populate the table.
     </div>
 
-    <div class="table-wrap" *ngIf="!loadingExercises && exercises.length > 0">
+    <div *ngIf="!loadingExercises && exercises.length > 0" class="library-toolbar">
+      <div class="field-group search-field">
+        <label for="exerciseSearch">Search Exercise</label>
+        <input
+          id="exerciseSearch"
+          [(ngModel)]="searchTerm"
+          placeholder="Search by exercise, muscle group, or muscles trained" />
+      </div>
+
+      <div class="field-group sort-field">
+        <label for="muscleGroupFilter">Sort By Muscle Group</label>
+        <select id="muscleGroupFilter" [(ngModel)]="selectedMuscleGroup">
+          <option value="">All Muscle Groups</option>
+          <option *ngFor="let group of muscleGroupOptions" [value]="group">{{ group }}</option>
+        </select>
+      </div>
+    </div>
+
+    <div *ngIf="!loadingExercises && exercises.length > 0 && !filteredExercises.length" class="state-card">
+      No exercises match your search or muscle group filter.
+    </div>
+
+    <div class="table-wrap" *ngIf="!loadingExercises && filteredExercises.length > 0">
       <table class="library-grid">
         <thead>
           <tr>
@@ -83,7 +150,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let ex of exercises">
+          <tr *ngFor="let ex of filteredExercises">
             <td>{{ ex.srNo }}</td>
             <td>{{ ex.muscleGroup }}</td>
             <td>{{ ex.exerciseName }}</td>

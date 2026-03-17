@@ -120,6 +120,22 @@
             </div>
 
             <div class="day-actions" *ngIf="editablePlanId === p.id">
+              <div class="copy-day-controls" *ngIf="getCopySourceOptions(p.gridRows, group.dayName).length">
+                <select
+                  [ngModel]="getCopySourceValue(p.gridRows, group.dayName)"
+                  (ngModelChange)="setCopySourceValue(p.gridRows, group.dayName, $event)">
+                  <option value="">Copy from day</option>
+                  <option *ngFor="let sourceDay of getCopySourceOptions(p.gridRows, group.dayName)" [value]="sourceDay">
+                    {{ sourceDay }}
+                  </option>
+                </select>
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  (click)="copyDayRows(p.gridRows, group.dayName)">
+                  Copy Day
+                </button>
+              </div>
               <button type="button" class="btn btn-secondary" (click)="addRowToDay(p.gridRows, group.dayName)">
                 + Add Row
               </button>
@@ -145,7 +161,14 @@
               </thead>
 
               <tbody>
-                <tr *ngFor="let row of group.rows; let i = index">
+                <tr
+                  *ngFor="let row of group.rows; let i = index"
+                  [class.draggable-row]="editablePlanId === p.id"
+                  [attr.draggable]="editablePlanId === p.id ? true : null"
+                  (dragstart)="onWorkoutRowDragStart(p.gridRows, row)"
+                  (dragover)="onWorkoutRowDragOver($event)"
+                  (drop)="onWorkoutRowDrop(p.gridRows, row)"
+                  (dragend)="onWorkoutRowDragEnd()">
                   <td class="row-index">{{ i + 1 }}</td>
                   <td>
                     <input
@@ -271,6 +294,22 @@
           </div>
 
           <div class="day-actions">
+            <div class="copy-day-controls" *ngIf="getCopySourceOptions(newPlanRows, group.dayName).length">
+              <select
+                [ngModel]="getCopySourceValue(newPlanRows, group.dayName)"
+                (ngModelChange)="setCopySourceValue(newPlanRows, group.dayName, $event)">
+                <option value="">Copy from day</option>
+                <option *ngFor="let sourceDay of getCopySourceOptions(newPlanRows, group.dayName)" [value]="sourceDay">
+                  {{ sourceDay }}
+                </option>
+              </select>
+              <button
+                type="button"
+                class="btn btn-secondary"
+                (click)="copyDayRows(newPlanRows, group.dayName)">
+                Copy Day
+              </button>
+            </div>
             <button type="button" class="btn btn-secondary" (click)="addRowToDay(newPlanRows, group.dayName)">
               + Add Row
             </button>
@@ -296,7 +335,14 @@
             </thead>
 
             <tbody>
-              <tr *ngFor="let row of group.rows; let i = index">
+              <tr
+                *ngFor="let row of group.rows; let i = index"
+                class="draggable-row"
+                draggable="true"
+                (dragstart)="onWorkoutRowDragStart(newPlanRows, row)"
+                (dragover)="onWorkoutRowDragOver($event)"
+                (drop)="onWorkoutRowDrop(newPlanRows, row)"
+                (dragend)="onWorkoutRowDragEnd()">
                 <td class="row-index">{{ i + 1 }}</td>
                 <td>
                   <input

@@ -18,6 +18,13 @@ type ImportRow = {
   videoUrl: string;
 };
 
+type ExerciseFormRow = {
+  muscleGroup: string;
+  exerciseName: string;
+  musclesTrained: string;
+  videoUrl: string;
+};
+
 @Component({
   selector: 'app-exercise-library-home',
   standalone: true,
@@ -28,6 +35,8 @@ type ImportRow = {
 export class ExerciseLibraryHomeComponent implements OnInit {
   exercises: any[] = [];
   loadingExercises = true;
+  searchTerm = '';
+  selectedMuscleGroup = '';
 
   error: string | null = null;
   formError: string | null = null;
@@ -52,8 +61,40 @@ export class ExerciseLibraryHomeComponent implements OnInit {
     musclesTrained: '',
     videoUrl: ''
   };
+  formRows: ExerciseFormRow[] = [this.createEmptyRow()];
 
   constructor(private exerciseLibraryApi: ExerciseLibraryApiService) {}
+
+  get filteredExercises(): any[] {
+    const search = this.searchTerm.trim().toLowerCase();
+    const selectedGroup = this.selectedMuscleGroup.trim().toLowerCase();
+
+    return this.exercises.filter((exercise) => {
+      const muscleGroup = String(exercise?.muscleGroup || '').toLowerCase();
+      const exerciseName = String(exercise?.exerciseName || '').toLowerCase();
+      const musclesTrained = String(exercise?.musclesTrained || '').toLowerCase();
+
+      const matchesSearch =
+        !search ||
+        exerciseName.includes(search) ||
+        muscleGroup.includes(search) ||
+        musclesTrained.includes(search);
+
+      const matchesGroup = !selectedGroup || muscleGroup === selectedGroup;
+
+      return matchesSearch && matchesGroup;
+    });
+  }
+
+  get muscleGroupOptions(): string[] {
+    return Array.from(
+      new Set(
+        this.exercises
+          .map((exercise) => String(exercise?.muscleGroup || '').trim())
+          .filter((group) => !!group)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }
 
   ngOnInit(): void {
     this.loadExercises();
@@ -78,39 +119,46 @@ export class ExerciseLibraryHomeComponent implements OnInit {
   submitExercise() {
     this.formError = null;
 
-    if (this.form.srNo == null || !this.form.muscleGroup.trim() || !this.form.exerciseName.trim()) {
-      this.formError = 'Sr No, Muscle Group, and Exercise Name are required.';
+    if (this.form.id) {
+      this.submitEditExercise();
       return;
     }
 
-    const normalizedVideoUrl = this.normalizeVideoUrl(this.form.videoUrl);
-    if (!this.isValidOptionalVideoUrl(normalizedVideoUrl)) {
-      this.formError = 'Video URL must be a valid http/https link.';
+    const rows = this.formRows.filter((row) => this.hasRowValue(row));
+    if (!rows.length) {
+      this.formError = 'Add at least one exercise row before saving.';
       return;
     }
 
-    const payload: ExerciseLibraryPayload = {
-      srNo: this.form.srNo,
-      muscleGroup: this.form.muscleGroup.trim(),
-      exerciseName: this.form.exerciseName.trim(),
-      musclesTrained: this.form.musclesTrained.trim(),
-      videoUrl: normalizedVideoUrl
-    };
+    const invalidRowIndex = rows.findIndex((row) => !this.isRowValid(row));
+    if (invalidRowIndex >= 0) {
+      this.formError = `Row ${invalidRowIndex + 1}: Muscle Group and Exercise Name are required.`;
+      return;
+    }
 
-    const request$ = this.form.id
-      ? this.exerciseLibraryApi.updateExercise(this.form.id, payload)
-      : this.exerciseLibraryApi.createExercise(payload);
+    const invalidVideoRowIndex = rows.findIndex((row) => !this.isValidOptionalVideoUrl(this.normalizeVideoUrl(row.videoUrl)));
+    if (invalidVideoRowIndex >= 0) {
+      this.formError = `Row ${invalidVideoRowIndex + 1}: Video URL must be a valid http/https link.`;
+      return;
+    }
+
+    const startingSrNo = this.getNextSrNo();
+    const payloads = rows.map((row, index) => this.toPayload(row, startingSrNo + index));
 
     this.savingExercise = true;
-    request$
-      .pipe(finalize(() => (this.savingExercise = false)))
+    from(payloads)
+      .pipe(
+        concatMap((payload) => this.exerciseLibraryApi.createExercise(payload)),
+        toArray(),
+        finalize(() => (this.savingExercise = false))
+      )
       .subscribe({
         next: () => {
           this.resetForm();
           this.loadExercises();
         },
         error: () => {
-          this.formError = 'Failed to save exercise.';
+          this.formError = 'Failed to save exercise rows.';
         }
       });
   }
@@ -125,6 +173,23 @@ export class ExerciseLibraryHomeComponent implements OnInit {
       musclesTrained: ex.musclesTrained || '',
       videoUrl: ex.videoUrl || ''
     };
+  }
+
+  addRow() {
+    this.formRows = [...this.formRows, this.createEmptyRow()];
+  }
+
+  removeRow(index: number) {
+    if (this.formRows.length === 1) {
+      this.formRows = [this.createEmptyRow()];
+      return;
+    }
+
+    this.formRows = this.formRows.filter((_, rowIndex) => rowIndex !== index);
+  }
+
+  cancelEdit() {
+    this.resetForm();
   }
 
   deleteExercise(exerciseId: string) {
@@ -287,6 +352,7 @@ export class ExerciseLibraryHomeComponent implements OnInit {
       musclesTrained: '',
       videoUrl: ''
     };
+    this.formRows = [this.createEmptyRow()];
   }
 
   normalizeVideoUrl(url: string | null | undefined): string {
@@ -299,5 +365,78 @@ export class ExerciseLibraryHomeComponent implements OnInit {
   private isValidOptionalVideoUrl(url: string): boolean {
     if (!url) return true;
     return /^(https?:\/\/)[^\s]+$/i.test(url);
+  }
+
+  private submitEditExercise() {
+    if (this.form.srNo == null || !this.form.muscleGroup.trim() || !this.form.exerciseName.trim()) {
+      this.formError = 'Sr No, Muscle Group, and Exercise Name are required.';
+      return;
+    }
+
+    const normalizedVideoUrl = this.normalizeVideoUrl(this.form.videoUrl);
+    if (!this.isValidOptionalVideoUrl(normalizedVideoUrl)) {
+      this.formError = 'Video URL must be a valid http/https link.';
+      return;
+    }
+
+    const payload: ExerciseLibraryPayload = {
+      srNo: this.form.srNo,
+      muscleGroup: this.form.muscleGroup.trim(),
+      exerciseName: this.form.exerciseName.trim(),
+      musclesTrained: this.form.musclesTrained.trim(),
+      videoUrl: normalizedVideoUrl
+    };
+
+    this.savingExercise = true;
+    this.exerciseLibraryApi.updateExercise(this.form.id!, payload)
+      .pipe(finalize(() => (this.savingExercise = false)))
+      .subscribe({
+        next: () => {
+          this.resetForm();
+          this.loadExercises();
+        },
+        error: () => {
+          this.formError = 'Failed to save exercise.';
+        }
+      });
+  }
+
+  private toPayload(row: ExerciseFormRow, srNo: number): ExerciseLibraryPayload {
+    return {
+      srNo,
+      muscleGroup: row.muscleGroup.trim(),
+      exerciseName: row.exerciseName.trim(),
+      musclesTrained: row.musclesTrained.trim(),
+      videoUrl: this.normalizeVideoUrl(row.videoUrl)
+    };
+  }
+
+  private isRowValid(row: ExerciseFormRow): boolean {
+    return !!row.muscleGroup.trim() && !!row.exerciseName.trim();
+  }
+
+  private hasRowValue(row: ExerciseFormRow): boolean {
+    return !!row.muscleGroup.trim() ||
+      !!row.exerciseName.trim() ||
+      !!row.musclesTrained.trim() ||
+      !!row.videoUrl.trim();
+  }
+
+  private createEmptyRow(): ExerciseFormRow {
+    return {
+      muscleGroup: '',
+      exerciseName: '',
+      musclesTrained: '',
+      videoUrl: ''
+    };
+  }
+
+  private getNextSrNo(): number {
+    const maxSrNo = this.exercises.reduce((max, exercise) => {
+      const currentSrNo = Number(exercise?.srNo || 0);
+      return currentSrNo > max ? currentSrNo : max;
+    }, 0);
+
+    return maxSrNo + 1;
   }
 }

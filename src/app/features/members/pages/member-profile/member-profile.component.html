@@ -483,7 +483,7 @@
         'positive': weightChange < 0,
         'negative': weightChange > 0
       }">
-      {{ weightChange > 0 ? '+' : '' }}{{ weightChange }} kg
+      {{ weightChange > 0 ? '+' : '' }}{{ weightChange | number:'1.2-2' }} kg
     </div>
   </div>
 
@@ -495,9 +495,9 @@
   </div>
 
   <div class="summary-card">
-    <div class="summary-label">Avg Energy</div>
+    <div class="summary-label">Avg Steps</div>
     <div class="summary-value">
-      {{ avgEnergy | number:'1.0-1' }}/10
+      {{ avgSteps | number:'1.0-0' }}
     </div>
   </div>
 
@@ -514,7 +514,7 @@
 
           <div class="checkin-header">
             <div class="checkin-date">
-              {{ c.submittedAt | date:'mediumDate' }}
+              {{ formatProgressCheckinDate(c.submittedAt) }}
             </div>
           </div>
 
@@ -530,11 +530,19 @@
           </div>
 
           <div *ngIf="checkinPhotos[c.id]?.length" class="photo-row">
-            <img
-              *ngFor="let p of checkinPhotos[c.id]"
-              [src]="getCheckinPhotoUrl(p.fileName)"
-              class="progress-photo"
-            />
+            <div
+              *ngFor="let p of checkinPhotos[c.id]; let i = index"
+              class="progress-photo-item"
+              draggable="true"
+              (dragstart)="onPhotoDragStart(c.id, i)"
+              (dragover)="onPhotoDragOver($event)"
+              (drop)="onPhotoDrop(c.id, i)"
+              (dragend)="onPhotoDragEnd()">
+              <img
+                [src]="getCheckinPhotoUrl(p.fileName)"
+                class="progress-photo"
+              />
+            </div>
           </div>
         </div>
 

@@ -49,4 +49,33 @@
 
   </div>
 
+  <div class="dashboard-section">
+    <div class="section-head">
+      <h2>Billing Due In 7 Days</h2>
+      <p>Members with pending billing that needs follow-up soon.</p>
+    </div>
+
+    <div class="due-list-card">
+      <div *ngIf="dueSoonLoading" class="due-state">Loading due members...</div>
+
+      <div *ngIf="!dueSoonLoading && !dueSoonMembers.length" class="due-state">
+        No members with pending billing in the next 7 days.
+      </div>
+
+      <div *ngIf="!dueSoonLoading && dueSoonMembers.length" class="due-list">
+        <div class="due-item" *ngFor="let member of dueSoonMembers">
+          <div class="due-main">
+            <strong>{{ member.fullName }}</strong>
+            <span>{{ member.email }}</span>
+          </div>
+          <div class="due-meta">
+            <span>Renewal: {{ formatDate(member.renewalDate) }}</span>
+            <span>{{ member.daysRemaining }} day{{ member.daysRemaining === 1 ? '' : 's' }} left</span>
+            <span>Pending: ₹ {{ member.totalPending }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>

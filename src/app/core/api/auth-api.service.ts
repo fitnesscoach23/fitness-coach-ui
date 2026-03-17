@@ -15,4 +15,16 @@ export class AuthApiService {
       payload
     );
   }
+
+  refresh(refreshToken: string) {
+    return this.http.post(
+      `${environment.authApi}/auth/refresh`,
+      refreshToken,
+      {
+        headers: {
+          'Content-Type': 'text/plain'
+        }
+      }
+    );
+  }
 }
