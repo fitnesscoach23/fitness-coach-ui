@@ -1,0 +1,12 @@
+node_modules
+dist
+.angular
+.git
+.gitignore
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
+npm-debug.log
+yarn-error.log
+coverage
+tmp

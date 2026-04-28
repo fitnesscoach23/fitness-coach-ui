@@ -112,6 +112,12 @@
   </button>
 
   <button
+    [class.active]="activeSection === 'dailyConsistency'"
+    (click)="setSection('dailyConsistency')">
+    Daily Consistency
+  </button>
+
+  <button
     [class.active]="activeSection === 'workout'"
     (click)="setSection('workout')">
     Workout
@@ -240,15 +246,15 @@
       <div class="metrics-grid">
         <div class="metrics-field">
           <label>Height (cm)</label>
-          <input type="number" [(ngModel)]="bodyMetrics.heightCm" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()" />
+          <input type="number" [(ngModel)]="bodyMetrics.heightCm" (ngModelChange)="onBodyMetricInput('heightCm')" />
         </div>
         <div class="metrics-field">
           <label>Current Weight (kg)</label>
-          <input type="number" [(ngModel)]="bodyMetrics.currentWeightKg" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()" />
+          <input type="number" [(ngModel)]="bodyMetrics.currentWeightKg" (ngModelChange)="onBodyMetricInput('currentWeightKg')" />
         </div>
         <div class="metrics-field">
           <label>Gender</label>
-          <select [(ngModel)]="bodyMetrics.gender" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()">
+          <select [(ngModel)]="bodyMetrics.gender" (ngModelChange)="onBodyMetricInput('gender')">
             <option value="">Select</option>
             <option>Male</option>
             <option>Female</option>
@@ -257,12 +263,12 @@
         </div>
         <div class="metrics-field">
           <label>Age</label>
-          <input type="number" [(ngModel)]="bodyMetrics.age" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()" />
+          <input type="number" [(ngModel)]="bodyMetrics.age" (ngModelChange)="onBodyMetricInput('age')" />
         </div>
       </div>
 
       <label class="metrics-checkbox">
-        <input type="checkbox" [(ngModel)]="bodyMetrics.isLean" (change)="bodyMetricsAutoCalc && recalculateBodyMetrics()" />
+          <input type="checkbox" [(ngModel)]="bodyMetrics.isLean" (change)="onBodyMetricInput('isLean')" />
         Lean (keep IBW = current weight)
       </label>
     </div>
@@ -273,7 +279,7 @@
       <div class="metrics-grid">
         <div class="metrics-field">
           <label>Activity Factor</label>
-          <select [(ngModel)]="bodyMetrics.activityFactor" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()">
+          <select [(ngModel)]="bodyMetrics.activityFactor" (ngModelChange)="onBodyMetricInput('activityFactor')">
             <option *ngFor="let option of activityOptions" [ngValue]="option.value">
               {{ option.label }}
             </option>
@@ -281,19 +287,19 @@
         </div>
         <div class="metrics-field">
           <label>IBW (kg)</label>
-          <input type="number" [(ngModel)]="bodyMetrics.ibwKg" />
+          <input type="number" [(ngModel)]="bodyMetrics.ibwKg" (ngModelChange)="onBodyMetricInput('ibwKg')" />
         </div>
         <div class="metrics-field">
           <label>BMI</label>
-          <input type="number" [(ngModel)]="bodyMetrics.bmi" />
+          <input type="number" [(ngModel)]="bodyMetrics.bmi" (ngModelChange)="onBodyMetricInput('bmi')" />
         </div>
         <div class="metrics-field">
           <label>BMR</label>
-          <input type="number" [(ngModel)]="bodyMetrics.bmr" />
+          <input type="number" [(ngModel)]="bodyMetrics.bmr" (ngModelChange)="onBodyMetricInput('bmr')" />
         </div>
         <div class="metrics-field">
           <label>TDEE</label>
-          <input type="number" [(ngModel)]="bodyMetrics.tdee" />
+          <input type="number" [(ngModel)]="bodyMetrics.tdee" (ngModelChange)="onBodyMetricInput('tdee')" />
         </div>
       </div>
     </div>
@@ -312,11 +318,15 @@
         </div>
         <div class="metrics-field">
           <label>Calorie Factor (per lb IBW)</label>
-          <input type="number" [(ngModel)]="bodyMetrics.targetCalorieFactor" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()" />
+          <input
+            type="number"
+            [(ngModel)]="bodyMetrics.targetCalorieFactor"
+            (ngModelChange)="onBodyMetricInput('targetCalorieFactor')"
+            [disabled]="bodyMetricsManualOverride" />
         </div>
         <div class="metrics-field">
           <label>Target Calories</label>
-          <input type="number" [(ngModel)]="bodyMetrics.targetCalories" />
+          <input type="number" [(ngModel)]="bodyMetrics.targetCalories" (ngModelChange)="onBodyMetricInput('targetCalories')" />
         </div>
       </div>
     </div>
@@ -327,23 +337,33 @@
       <div class="metrics-grid">
         <div class="metrics-field">
           <label>Protein RDA (g/kg)</label>
-          <input type="number" step="0.1" [(ngModel)]="bodyMetrics.proteinRda" (ngModelChange)="onTrainingHistoryChange()" />
+          <input
+            type="number"
+            step="0.1"
+            [(ngModel)]="bodyMetrics.proteinRda"
+            (ngModelChange)="onTrainingHistoryChange()"
+            [disabled]="bodyMetricsManualOverride" />
         </div>
         <div class="metrics-field">
           <label>Carb Factor (g/kg IBW)</label>
-          <input type="number" step="0.1" [(ngModel)]="bodyMetrics.carbFactor" (ngModelChange)="bodyMetricsAutoCalc && recalculateBodyMetrics()" />
+          <input
+            type="number"
+            step="0.1"
+            [(ngModel)]="bodyMetrics.carbFactor"
+            (ngModelChange)="onBodyMetricInput('carbFactor')"
+            [disabled]="bodyMetricsManualOverride" />
         </div>
         <div class="metrics-field">
           <label>Protein (g)</label>
-          <input type="number" [(ngModel)]="bodyMetrics.proteinGrams" />
+          <input type="number" [(ngModel)]="bodyMetrics.proteinGrams" (ngModelChange)="onBodyMetricInput('proteinGrams')" />
         </div>
         <div class="metrics-field">
           <label>Carbs (g)</label>
-          <input type="number" [(ngModel)]="bodyMetrics.carbsGrams" />
+          <input type="number" [(ngModel)]="bodyMetrics.carbsGrams" (ngModelChange)="onBodyMetricInput('carbsGrams')" />
         </div>
         <div class="metrics-field">
           <label>Fats (g)</label>
-          <input type="number" [(ngModel)]="bodyMetrics.fatsGrams" />
+          <input type="number" [(ngModel)]="bodyMetrics.fatsGrams" (ngModelChange)="onBodyMetricInput('fatsGrams')" />
         </div>
       </div>
 
@@ -374,8 +394,14 @@
           <input type="checkbox" [(ngModel)]="bodyMetricsAutoCalc" />
           Auto-calculate
         </label>
+        <button
+          type="button"
+          class="secondary-btn"
+          (click)="toggleBodyMetricsManualOverride()">
+          {{ bodyMetricsManualOverride ? 'Disable Manual Override' : 'Manual Override' }}
+        </button>
         <div class="metrics-action-buttons">
-          <button type="button" class="secondary-btn" (click)="recalculateBodyMetrics()">
+          <button type="button" class="secondary-btn" (click)="recalculateBodyMetrics('auto')">
           Recalculate
           </button>
           <button
@@ -389,6 +415,9 @@
       </div>
       <div *ngIf="bodyMetricsMessage" class="metrics-message">
         {{ bodyMetricsMessage }}
+      </div>
+      <div *ngIf="bodyMetricsManualOverride" class="metrics-message">
+        Manual override is active. Target Calories, Protein, Carbs, and Fats will be saved exactly as entered.
       </div>
     </div>
   </div>
@@ -504,7 +533,16 @@
 </div>
   <div *ngIf="activeSection === 'progress'" class="card">
 
-    <h3 class="section-title">Progress Check-ins</h3>
+    <div class="progress-section-header">
+      <h3 class="section-title">Progress Check-ins</h3>
+      <button
+        type="button"
+        class="secondary-btn"
+        (click)="openProgressComparison()"
+        [disabled]="!canCompareProgress">
+        Compare Latest 2 Check-ins
+      </button>
+    </div>
 
     <div class="progress-content">
       <div class="progress-list">
@@ -521,6 +559,7 @@
           <div class="checkin-grid">
             <div *ngIf="c.weight"><b>Weight</b><span>{{ c.weight }} kg</span></div>
             <div *ngIf="c.dietAdherence"><b>Diet</b><span>{{ c.dietAdherence }}/10</span></div>
+            <div *ngIf="c.exerciseRating != null || c.energy != null"><b>Exercise Rating</b><span>{{ c.exerciseRating ?? c.energy }}/10</span></div>
             <div *ngIf="c.energy"><b>Energy</b><span>{{ c.energy }}/10</span></div>
             <div *ngIf="c.stepsAvg"><b>Steps</b><span>{{ c.stepsAvg }}</span></div>
           </div>
@@ -559,6 +598,189 @@
       </div>
     </div>
 
+  </div>
+
+  <div
+    class="comparison-modal-backdrop"
+    *ngIf="showProgressComparisonModal"
+    (click)="closeProgressComparison()">
+    <div
+      #comparisonModal
+      class="comparison-modal"
+      [class.maximized]="isProgressComparisonMaximized"
+      (click)="$event.stopPropagation()">
+      <div class="comparison-modal-header">
+        <div>
+          <h3>Progress Comparison</h3>
+          <p>
+            {{ member?.fullName }} · {{ formatProgressCheckinDate(currentCheckin?.submittedAt) }}
+            vs {{ formatProgressCheckinDate(previousCheckin?.submittedAt) }}
+          </p>
+        </div>
+        <div class="comparison-modal-actions">
+          <div class="comparison-zoom-controls">
+            <button
+              type="button"
+              class="secondary-btn"
+              (click)="zoomOutComparison()">
+              Zoom Out
+            </button>
+            <button
+              type="button"
+              class="secondary-btn"
+              (click)="resetComparisonZoom()">
+              {{ (comparisonZoomLevel * 100) | number:'1.0-0' }}%
+            </button>
+            <button
+              type="button"
+              class="secondary-btn"
+              (click)="zoomInComparison()">
+              Zoom In
+            </button>
+          </div>
+          <button
+            type="button"
+            class="secondary-btn"
+            (click)="toggleProgressComparisonMaximize()">
+            {{ isProgressComparisonMaximized ? 'Restore' : 'Maximize' }}
+          </button>
+          <button type="button" class="secondary-btn" (click)="closeProgressComparison()">Close</button>
+        </div>
+      </div>
+
+      <div
+        class="comparison-zoom-shell"
+        [style.transform]="'scale(' + comparisonZoomLevel + ')'"
+        [style.transformOrigin]="'top center'">
+        <div class="comparison-grid">
+          <div class="comparison-summary-card">
+            <div class="comparison-summary-title">Member Summary</div>
+
+            <div class="comparison-summary-table">
+              <div class="comparison-label">Member Name</div>
+              <div class="comparison-value strong">{{ member?.fullName || 'NA' }}</div>
+
+              <div class="comparison-label">Current Weight</div>
+              <div class="comparison-value">{{ getComparisonValue(currentCheckin, 'weight') }}</div>
+
+              <div class="comparison-label">Previous Weight</div>
+              <div class="comparison-value">{{ getComparisonValue(previousCheckin, 'weight') }}</div>
+
+              <div class="comparison-label">Current Steps</div>
+              <div class="comparison-value">{{ getComparisonValue(currentCheckin, 'stepsAvg') }}</div>
+
+              <div class="comparison-label">Previous Steps</div>
+              <div class="comparison-value">{{ getComparisonValue(previousCheckin, 'stepsAvg') }}</div>
+
+              <div class="comparison-label accent">Current Diet Plan</div>
+              <div class="comparison-value wide">{{ currentDietPlanSummary }}</div>
+
+              <div class="comparison-label accent">Last Changes</div>
+              <div class="comparison-value wide">
+                Weight {{ getComparisonDelta('weight') }} · Steps {{ getComparisonDelta('stepsAvg') }}
+              </div>
+
+              <div class="comparison-label accent">Exercise Rating</div>
+              <div class="comparison-value wide">
+                Current {{ getComparisonValue(currentCheckin, 'exerciseRating') }}/10
+                <br />
+                Previous {{ getComparisonValue(previousCheckin, 'exerciseRating') }}/10
+              </div>
+
+              <div class="comparison-label accent">Coach Notes</div>
+              <div class="comparison-value wide comparison-notes-value">
+                <strong>Most Recent:</strong> {{ getComparisonNotes(currentCheckin) }}
+                <br />
+                <strong>Previous:</strong> {{ getComparisonNotes(previousCheckin) }}
+              </div>
+            </div>
+          </div>
+
+          <div class="comparison-photo-column">
+            <div class="comparison-photo-title">Front Pose</div>
+            <div class="comparison-photo-card">
+              <img
+                *ngIf="getPhotoByType(currentCheckin?.id, 'FRONT') as currentFront; else noCurrentFront"
+                [src]="getCheckinPhotoUrl(currentFront)"
+                class="comparison-photo"
+              />
+              <ng-template #noCurrentFront>
+                <div class="comparison-photo-empty">No current front photo</div>
+              </ng-template>
+              <div class="comparison-photo-caption">Most Recent</div>
+            </div>
+            <div class="comparison-photo-card">
+              <img
+                *ngIf="getPhotoByType(previousCheckin?.id, 'FRONT') as previousFront; else noPreviousFront"
+                [src]="getCheckinPhotoUrl(previousFront)"
+                class="comparison-photo"
+              />
+              <ng-template #noPreviousFront>
+                <div class="comparison-photo-empty">No previous front photo</div>
+              </ng-template>
+              <div class="comparison-photo-caption">Previous</div>
+            </div>
+          </div>
+
+          <div class="comparison-photo-column">
+            <div class="comparison-photo-title">Side Pose</div>
+            <div class="comparison-photo-card">
+              <img
+                *ngIf="getPhotoByType(currentCheckin?.id, 'SIDE') as currentSide; else noCurrentSide"
+                [src]="getCheckinPhotoUrl(currentSide)"
+                class="comparison-photo"
+              />
+              <ng-template #noCurrentSide>
+                <div class="comparison-photo-empty">No current side photo</div>
+              </ng-template>
+              <div class="comparison-photo-caption">Most Recent</div>
+            </div>
+            <div class="comparison-photo-card">
+              <img
+                *ngIf="getPhotoByType(previousCheckin?.id, 'SIDE') as previousSide; else noPreviousSide"
+                [src]="getCheckinPhotoUrl(previousSide)"
+                class="comparison-photo"
+              />
+              <ng-template #noPreviousSide>
+                <div class="comparison-photo-empty">No previous side photo</div>
+              </ng-template>
+              <div class="comparison-photo-caption">Previous</div>
+            </div>
+          </div>
+
+          <div class="comparison-photo-column">
+            <div class="comparison-photo-title">Back Pose</div>
+            <div class="comparison-photo-card">
+              <img
+                *ngIf="getPhotoByType(currentCheckin?.id, 'BACK') as currentBack; else noCurrentBack"
+                [src]="getCheckinPhotoUrl(currentBack)"
+                class="comparison-photo"
+              />
+              <ng-template #noCurrentBack>
+                <div class="comparison-photo-empty">No current back photo</div>
+              </ng-template>
+              <div class="comparison-photo-caption">Most Recent</div>
+            </div>
+            <div class="comparison-photo-card">
+              <img
+                *ngIf="getPhotoByType(previousCheckin?.id, 'BACK') as previousBack; else noPreviousBack"
+                [src]="getCheckinPhotoUrl(previousBack)"
+                class="comparison-photo"
+              />
+              <ng-template #noPreviousBack>
+                <div class="comparison-photo-empty">No previous back photo</div>
+              </ng-template>
+              <div class="comparison-photo-caption">Previous</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= DAILY CONSISTENCY ================= -->
+  <div *ngIf="activeSection === 'dailyConsistency'" class="card daily-consistency-card">
+    <app-daily-checkin-calendar [memberId]="member.id"></app-daily-checkin-calendar>
   </div>
 
  <!-- ================= WORKOUT ================= -->
@@ -655,7 +877,14 @@
 
       <!-- Food Rows -->
       <div *ngFor="let i of meal.items" class="diet-row">
-        <div class="food-name">{{ i.foodName }}</div>
+        <div class="food-name">
+          <div>{{ getDietItemDisplayName(i.foodName) }}</div>
+          <div
+            *ngIf="getDietItemOptionalAlternatives(i.foodName).length"
+            class="diet-optional-text">
+            Optional: {{ getDietItemOptionalAlternatives(i.foodName).join(', ') }}
+          </div>
+        </div>
         <div>{{ i.quantity }}</div>
         <div>{{ i.calories }}</div>
         <div>{{ i.protein }}</div>

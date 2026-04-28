@@ -9,6 +9,7 @@ export interface ProgressCheckin {
   weight?: number;
   dietAdherence?: number;
   energy?: number;
+  exerciseRating?: number;
   stepsAvg?: number;
   notes?: string;
   submittedAt: string;
@@ -24,6 +25,7 @@ export class ProgressCheckinApiService {
     weight: number;
     dietAdherence?: number | null;
     energy?: number | null;
+    exerciseRating?: number | null;
     stepsAvg?: number | null;
     notes?: string;
     submittedAt?: string | null;
@@ -45,6 +47,26 @@ export class ProgressCheckinApiService {
   deleteCheckin(checkInId: string) {
     return this.http.delete(
       `${environment.checkinApi}/progress/checkins/${checkInId}`,
+      { responseType: 'text' }
+    );
+  }
+
+  updateCheckin(
+    checkInId: string,
+    payload: {
+      memberId: string;
+      weight: number;
+      dietAdherence?: number | null;
+      energy?: number | null;
+      exerciseRating?: number | null;
+      stepsAvg?: number | null;
+      notes?: string;
+      submittedAt?: string | null;
+    }
+  ) {
+    return this.http.put(
+      `${environment.checkinApi}/progress/checkins/${checkInId}`,
+      payload,
       { responseType: 'text' }
     );
   }

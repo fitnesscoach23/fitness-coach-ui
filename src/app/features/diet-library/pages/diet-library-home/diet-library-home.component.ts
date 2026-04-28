@@ -299,32 +299,46 @@ export class DietLibraryHomeComponent implements OnInit {
     const fatsIdx = header.findIndex((h: string) => h === 'fats' || h === 'fat' || h.includes('lipid'));
     const categoryIdx = header.findIndex((h: string) => h.includes('category') || h.includes('group'));
 
-    if (foodIdx < 0 || caloriesIdx < 0 || carbsIdx < 0 || proteinIdx < 0 || fatsIdx < 0 || categoryIdx < 0) {
+    if (foodIdx < 0 || caloriesIdx < 0 || carbsIdx < 0 || proteinIdx < 0 || fatsIdx < 0) {
       return [];
     }
 
     const rows: ImportRow[] = [];
+    let currentCategory: string | null = null;
 
     for (let i = headerIndex + 1; i < matrix.length; i++) {
       const row = matrix[i] || [];
       const foodItem = String(row[foodIdx] ?? '').trim();
-      const calories = Number(String(row[caloriesIdx] ?? '').trim());
-      const carbs = Number(String(row[carbsIdx] ?? '').trim());
-      const protein = Number(String(row[proteinIdx] ?? '').trim());
-      const fats = Number(String(row[fatsIdx] ?? '').trim());
-      const category = String(row[categoryIdx] ?? '').trim();
+      const calories = this.parseExcelNumber(row[caloriesIdx]);
+      const carbs = this.parseExcelNumber(row[carbsIdx]);
+      const protein = this.parseExcelNumber(row[proteinIdx]);
+      const fats = this.parseExcelNumber(row[fatsIdx]);
+      const explicitCategory =
+        categoryIdx >= 0 ? this.normalizeCategory(String(row[categoryIdx] ?? '').trim()) : null;
 
       if (!foodItem) continue;
-      if (![calories, carbs, protein, fats].every((n) => Number.isFinite(n) && n >= 0)) continue;
-      if (!this.normalizeCategory(category)) continue;
+
+      const isSectionRow =
+        ![calories, carbs, protein, fats].some((n) => n != null) &&
+        !!this.normalizeCategory(foodItem);
+
+      if (isSectionRow) {
+        currentCategory = this.normalizeCategory(foodItem);
+        continue;
+      }
+
+      const resolvedCategory = explicitCategory || currentCategory;
+
+      if (![calories, carbs, protein, fats].every((n) => Number.isFinite(n) && n! >= 0)) continue;
+      if (!resolvedCategory) continue;
 
       rows.push({
         foodItem,
-        calories,
-        carbs,
-        protein,
-        fats,
-        category
+        calories: calories!,
+        carbs: carbs!,
+        protein: protein!,
+        fats: fats!,
+        category: resolvedCategory
       });
     }
 
@@ -350,6 +364,17 @@ export class DietLibraryHomeComponent implements OnInit {
 
   private toNumberOrNull(value: any): number | null {
     const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private parseExcelNumber(value: any): number | null {
+    const normalized = String(value ?? '')
+      .trim()
+      .replace(/,/g, '');
+
+    if (!normalized) return null;
+
+    const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
   }
 

@@ -1,0 +1,123 @@
+<div class="daily-checkin-section">
+  <div class="daily-checkin-toolbar">
+    <div>
+      <h3 class="section-title">Daily Consistency</h3>
+      <p class="section-subtitle">Manual exercise and steps tracking for the selected month.</p>
+    </div>
+
+    <div class="month-controls">
+      <button type="button" class="secondary-btn" (click)="previousMonth()">Previous</button>
+      <div class="month-label">{{ visibleMonthLabel }}</div>
+      <button type="button" class="secondary-btn" (click)="nextMonth()">Next</button>
+    </div>
+  </div>
+
+  <div class="daily-summary">
+    <div class="summary-card">
+      <div class="summary-label">Days in Month</div>
+      <div class="summary-value">{{ summary.daysInMonth }}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Recorded Days</div>
+      <div class="summary-value">{{ summary.recordedDays }}</div>
+    </div>
+    <div class="summary-card active-summary">
+      <div class="summary-label">Active Days</div>
+      <div class="summary-value">{{ summary.activeDays }}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Exercise Days</div>
+      <div class="summary-value">{{ summary.exerciseDays }}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Total Steps</div>
+      <div class="summary-value">{{ summary.totalSteps | number:'1.0-0' }}</div>
+    </div>
+  </div>
+
+  <div class="calendar-shell">
+    <div class="calendar-card">
+      <div class="calendar-status" *ngIf="loading">Loading daily check-ins...</div>
+      <div class="calendar-status error" *ngIf="error">{{ error }}</div>
+
+      <div class="calendar-legend">
+        <span><i class="legend-dot no-entry"></i>No entry</span>
+        <span><i class="legend-dot inactive-day"></i>Recorded inactive</span>
+        <span><i class="legend-dot active-day"></i>Active day</span>
+      </div>
+
+      <div class="calendar-grid weekday-grid">
+        <div *ngFor="let day of weekDays" class="weekday">{{ day }}</div>
+      </div>
+
+      <div class="calendar-grid day-grid">
+        <button
+          type="button"
+          *ngFor="let cell of cells"
+          class="day-cell"
+          [ngClass]="getCellClass(cell)"
+          [disabled]="!cell.inMonth"
+          (click)="selectDay(cell)">
+          <span class="day-number">{{ cell.dayNumber || '' }}</span>
+          <span class="day-state" *ngIf="cell.entry">
+            {{ cell.entry.active ? 'Active' : 'Inactive' }}
+          </span>
+          <span class="day-steps" *ngIf="cell.entry?.stepsCount">
+            {{ formatCellSteps(cell.entry) }} steps
+          </span>
+          <span class="day-exercise" *ngIf="cell.entry?.exerciseDone">Exercise</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="editor-card" *ngIf="editor">
+      <div class="editor-header">
+        <div>
+          <h4>{{ selectedEntry ? 'Edit Day' : 'Record Day' }}</h4>
+          <p>{{ editor.checkInDate }}</p>
+        </div>
+        <button type="button" class="secondary-btn" (click)="closeEditor()">Close</button>
+      </div>
+
+      <label class="exercise-toggle">
+        <input type="checkbox" [(ngModel)]="editor.exerciseDone" />
+        Exercise done
+      </label>
+
+      <div class="editor-field">
+        <label>Steps Count</label>
+        <input
+          type="number"
+          min="0"
+          [(ngModel)]="editor.stepsCount"
+          placeholder="0" />
+      </div>
+
+      <div class="editor-field">
+        <label>Notes</label>
+        <textarea
+          rows="4"
+          [(ngModel)]="editor.notes"
+          placeholder="Optional notes"></textarea>
+      </div>
+
+      <div class="editor-actions">
+        <button
+          type="button"
+          class="danger-btn"
+          *ngIf="selectedEntry"
+          [disabled]="deleting || saving"
+          (click)="deleteSelectedDay()">
+          {{ deleting ? 'Deleting...' : 'Delete' }}
+        </button>
+        <button
+          type="button"
+          class="primary-btn"
+          [disabled]="saving || deleting"
+          (click)="saveSelectedDay()">
+          {{ saving ? 'Saving...' : 'Save' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -111,6 +111,7 @@
                 <thead>
                   <tr>
                     <th>Food</th>
+                    <th>Optional Alternatives</th>
                     <th>Qty</th>
                     <th>Unit</th>
                     <th>Protein</th>
@@ -135,6 +136,33 @@
                           {{ f.category }} | Cal {{ f.calories }} | C {{ f.carbs }} | P {{ f.protein }} | F {{ f.fats }}
                         </option>
                       </datalist>
+                    </td>
+                    <td class="optional-cell">
+                      <input
+                        [(ngModel)]="row.optionalAlternativesText"
+                        (ngModelChange)="onOptionalAlternativesChanged(row)"
+                        placeholder="Optional: Upma, Idli, Dosa" />
+                      <div class="optional-helper">
+                        These are optional swaps and do not affect totals.
+                      </div>
+                      <div class="optional-chips" *ngIf="row.optionalAlternatives?.length">
+                        <button
+                          type="button"
+                          class="optional-chip selected"
+                          *ngFor="let alternative of row.optionalAlternatives; let altIndex = index"
+                          (click)="removeOptionalAlternative(row, altIndex)">
+                          {{ alternative }} ×
+                        </button>
+                      </div>
+                      <div class="optional-suggestions" *ngIf="getOptionalAlternativeSuggestions(row).length">
+                        <button
+                          type="button"
+                          class="optional-chip"
+                          *ngFor="let suggestion of getOptionalAlternativeSuggestions(row)"
+                          (click)="addOptionalAlternative(row, suggestion.foodItem)">
+                          + {{ suggestion.foodItem }}
+                        </button>
+                      </div>
                     </td>
                     <td><input type="number" [(ngModel)]="row.quantity" (ngModelChange)="onQuantityChanged(row)" /></td>
                     <td><input [(ngModel)]="row.unit" /></td>
@@ -178,6 +206,9 @@
           <button type="button" class="btn btn-secondary" (click)="addMeal()">+ Add Meal</button>
 
           <div class="right-actions">
+            <button type="button" class="btn btn-secondary" (click)="reviewDietPlan()" [disabled]="!canReviewDietPlan || reviewLoading">
+              {{ reviewLoading ? 'Reviewing...' : 'Review Diet Plan' }}
+            </button>
             <button class="btn btn-primary" (click)="save()" [disabled]="loading">
               {{ loading ? 'Saving...' : 'Save Diet Plan' }}
             </button>
@@ -193,6 +224,98 @@
   <div *ngIf="successMessage" class="success-card">
     {{ successMessage }}
   </div>
+
+  <section *ngIf="showReviewPanel" class="editor-card">
+  <div class="top-actions">
+    <h3>Diet Review</h3>
+    <button type="button" class="btn btn-secondary" (click)="clearDietReview()">Close Review</button>
+  </div>
+
+  <div *ngIf="reviewResult">
+    <div class="review-summary-card" *ngIf="reviewSummaryText">
+      <div class="review-summary-label">Review Summary</div>
+      <div class="review-summary-text">{{ reviewSummaryText }}</div>
+    </div>
+
+    <div class="macro-summary">
+      <div class="macro-card" *ngFor="let item of reviewSummaryEntries">
+        <div class="macro-label">{{ item.label }}</div>
+        <div class="macro-sub">Target: {{ formatMetricValue(item.value?.target) }}</div>
+        <div class="macro-sub">Current: {{ formatMetricValue(item.value?.current) }}</div>
+        <div class="macro-value">Gap: {{ formatGapValue(item.value?.gap) }}</div>
+      </div>
+    </div>
+
+    <div class="state-inline" *ngIf="reviewResult.reviewSource || reviewResult.disclaimer">
+      <strong>{{ reviewSourceLabel }}</strong>
+      <span *ngIf="reviewResult.disclaimer"> | {{ reviewResult.disclaimer }}</span>
+    </div>
+
+    <div class="error-card" *ngIf="reviewWarnings.length > 0">
+      <div><strong>Warnings</strong></div>
+      <div *ngFor="let warning of reviewWarnings">{{ warning }}</div>
+    </div>
+
+    <div class="meal-stack" *ngIf="reviewSuggestions.length > 0">
+      <div class="meal-block" *ngFor="let suggestion of reviewSuggestions; let i = index">
+        <div class="meal-header">
+          <div>
+            <strong>{{ getSuggestionTitle(suggestion, i) }}</strong>
+            <div *ngIf="isStructuredSuggestion(suggestion) && suggestion.mealType">
+              {{ suggestion.mealType }}
+            </div>
+          </div>
+        </div>
+
+        <div class="notes-panel">
+          <div *ngIf="getSuggestionDetail(suggestion)">
+            <strong>Detail:</strong> {{ getSuggestionDetail(suggestion) }}
+          </div>
+          <div><strong>Reason:</strong> {{ getSuggestionReason(suggestion) }}</div>
+          <div *ngIf="getSuggestionImpactText(suggestion)">
+            <strong>Impact:</strong> {{ getSuggestionImpactText(suggestion) }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="meal-stack" *ngIf="reviewRowSuggestions.length > 0">
+      <div class="meal-block" *ngFor="let rowSuggestion of reviewRowSuggestions; let i = index">
+        <div class="meal-header">
+          <div>
+            <strong>Row Suggestion {{ i + 1 }}</strong>
+            <div *ngIf="rowSuggestion.mealType || rowSuggestion.foodName">
+              {{ rowSuggestion.mealType || 'Meal' }}
+              <span *ngIf="rowSuggestion.foodName"> | {{ rowSuggestion.foodName }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="notes-panel">
+          <div *ngIf="rowSuggestion.action"><strong>Action:</strong> {{ rowSuggestion.action }}</div>
+          <div *ngIf="rowSuggestion.suggestedQuantity != null || rowSuggestion.unit">
+            <strong>Suggested Qty:</strong>
+            {{ formatMetricValue(rowSuggestion.suggestedQuantity) }} {{ rowSuggestion.unit || '' }}
+          </div>
+          <div *ngIf="rowSuggestion.suggestion"><strong>Suggestion:</strong> {{ rowSuggestion.suggestion }}</div>
+          <div *ngIf="rowSuggestion.reason"><strong>Reason:</strong> {{ rowSuggestion.reason }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-inline" *ngIf="reviewSuggestions.length === 0 && reviewRowSuggestions.length === 0">
+      No review suggestions were returned for this plan.
+    </div>
+  </div>
+
+  <div *ngIf="reviewLoading" class="state-inline">
+    Reviewing current diet plan...
+  </div>
+
+  <div *ngIf="reviewError" class="error-card">
+    {{ reviewError }}
+  </div>
+</section>
 
   <div *ngIf="error" class="error-card">
     {{ error }}

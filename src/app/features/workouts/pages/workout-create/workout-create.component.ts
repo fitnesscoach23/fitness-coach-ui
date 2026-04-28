@@ -556,6 +556,14 @@ const delete$: Observable<void> = plan.days.reduce(
 
 delete$
   .pipe(
+    concatMap(() =>
+      this.workoutApi
+        .updateWorkoutPlan(plan.id, {
+          title: plan.title,
+          notes: plan.notes
+        })
+        .pipe(mapTo(void 0))
+    ),
     concatMap(() => {
 
       let chain$: Observable<void> = of(void 0);

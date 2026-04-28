@@ -76,6 +76,10 @@
   font-family: inherit;
 }
 
+.plan-header-field input {
+  max-width: 520px;
+}
+
 .meta {
   display: flex;
   align-items: center;
@@ -139,6 +143,16 @@
 
 .plan-notes.muted {
   color: #94a3b8;
+}
+
+.inline-notes-panel {
+  margin-top: 10px;
+  max-width: 720px;
+}
+
+.inline-notes-panel textarea {
+  max-width: 720px;
+  min-height: 96px;
 }
 
 .dot {

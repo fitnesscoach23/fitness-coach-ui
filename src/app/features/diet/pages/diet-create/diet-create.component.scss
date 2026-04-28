@@ -133,6 +133,27 @@
   gap: 12px;
 }
 
+.review-summary-card {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%);
+}
+
+.review-summary-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.review-summary-text {
+  color: #0f172a;
+  line-height: 1.6;
+}
+
 .macro-card {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -262,6 +283,41 @@
 
 .food-cell {
   min-width: 220px;
+}
+
+.optional-cell {
+  min-width: 260px;
+}
+
+.optional-helper {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.optional-chips,
+.optional-suggestions {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.optional-chip {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.optional-chip.selected {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
 }
 
 .cal-cell {

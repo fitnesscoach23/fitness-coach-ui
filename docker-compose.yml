@@ -1,0 +1,9 @@
+services:
+  fitness-coach-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fitness-coach-ui
+    ports:
+      - "4200:80"
+    restart: unless-stopped

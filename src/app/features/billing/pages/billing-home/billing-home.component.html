@@ -259,6 +259,10 @@
             </td>
             <td>{{ p.mode }}</td>
             <td class="payment-actions">
+              <input
+                *ngIf="p.status === 'PENDING' && p.mode === 'MANUAL'"
+                type="date"
+                [(ngModel)]="confirmPaymentDates[p.id]" />
               <button
                 *ngIf="p.status === 'PENDING' && p.mode === 'MANUAL'"
                 class="secondary-btn"

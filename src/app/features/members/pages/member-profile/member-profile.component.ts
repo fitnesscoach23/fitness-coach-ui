@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MemberApiService } from '../../../../core/api/member-api.service';
 import { CommonModule } from '@angular/common';
@@ -12,28 +12,52 @@ import { WorkoutApiService } from '../../../../core/services/workout-api.service
 import { DietApiService } from '../../../../core/services/diet-api.service';
 import { ProgressCheckinApiService } from '../../../../core/services/progress-checkin-api.service';
 import { ProgressCheckinPhotoApiService } from '../../../../core/api/progress-checkin-photo-api.service';
+import { DailyCheckinCalendarComponent } from '../../components/daily-checkin-calendar/daily-checkin-calendar.component';
 
 declare const XLSX: any;
 
 type OverviewField = { key: string; label: string; asLink?: boolean };
 type OverviewSection = { title: string; items: OverviewField[] };
+type BodyMetricSourceField =
+  | 'heightCm'
+  | 'currentWeightKg'
+  | 'gender'
+  | 'age'
+  | 'isLean'
+  | 'activityFactor'
+  | 'ibwKg'
+  | 'bmi'
+  | 'bmr'
+  | 'tdee'
+  | 'targetGoal'
+  | 'targetCalorieFactor'
+  | 'targetCalories'
+  | 'proteinRda'
+  | 'proteinGrams'
+  | 'carbFactor'
+  | 'carbsGrams'
+  | 'fatsGrams'
+  | 'auto';
 
 @Component({
   selector: 'app-member-profile',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, ReactiveFormsModule, DailyCheckinCalendarComponent],
   templateUrl: './member-profile.component.html',
   styleUrls: ['./member-profile.component.scss']
 })
 export class MemberProfileComponent implements OnInit {
   private readonly expirySoonDays = 7;
+  @ViewChild('comparisonModal') comparisonModalRef?: ElementRef<HTMLDivElement>;
 
   member: any = null;
   loading = true;
   error: string | null = null;
   subscription: any = null;
+  subscriptionHistory: any[] = [];
   subscriptionLoading = true;
   payments: any[] = [];
+  confirmPaymentDates: Record<string, string> = {};
   paymentsLoading = true;
   paymentAmount: number | null = null;
   paymentActionLoading = false;
@@ -66,7 +90,10 @@ export class MemberProfileComponent implements OnInit {
   draggedPhoto: { checkinId: string; index: number } | null = null;
   currentCheckin: any | null = null;
   previousCheckin: any | null = null;
-  activeSection: 'overview' | 'bodyMetrics' | 'billing' | 'progress' | 'workout' | 'diet' = 'overview';
+  showProgressComparisonModal = false;
+  isProgressComparisonMaximized = false;
+  comparisonZoomLevel = 1;
+  activeSection: 'overview' | 'bodyMetrics' | 'billing' | 'progress' | 'dailyConsistency' | 'workout' | 'diet' = 'overview';
   totalPaid = 0;
   totalPending = 0;
   latestWeight = 0;
@@ -80,6 +107,7 @@ export class MemberProfileComponent implements OnInit {
   autoCalculateRenewal = true;
   overrideMessage: string | null = null;
   bodyMetricsAutoCalc = true;
+  bodyMetricsManualOverride = false;
   bodyMetricsSaving = false;
   bodyMetricsMessage: string | null = null;
   private readonly targetGoalMap: Record<string, string> = {
@@ -253,6 +281,14 @@ export class MemberProfileComponent implements OnInit {
     }));
   }
 
+  getDietItemDisplayName(foodName: any): string {
+    return this.parseDietItemFoodName(foodName).primaryFoodName;
+  }
+
+  getDietItemOptionalAlternatives(foodName: any): string[] {
+    return this.parseDietItemFoodName(foodName).optionalAlternatives;
+  }
+
   getMemberValue(key: string): any {
     return this.member?.[key];
   }
@@ -325,22 +361,37 @@ export class MemberProfileComponent implements OnInit {
     const storedMetrics = this.member?.bodyMetrics;
     if (storedMetrics) {
       this.applyBodyMetrics(storedMetrics);
+      this.bodyMetricsManualOverride = this.inferBodyMetricsManualOverride(storedMetrics);
     } else {
       this.bodyMetrics.heightCm = this.toNumberOrNull(this.member?.heightCm);
       this.bodyMetrics.currentWeightKg = this.toNumberOrNull(this.member?.currentWeightKg);
       this.bodyMetrics.gender = this.member?.gender || '';
       this.bodyMetrics.age = this.toNumberOrNull(this.member?.age);
       this.bodyMetrics.isLean = false;
+      this.bodyMetricsManualOverride = false;
     }
 
-    if (this.bodyMetricsAutoCalc) {
-      this.recalculateBodyMetrics();
+    if (this.bodyMetricsAutoCalc && !this.bodyMetricsManualOverride) {
+      this.recalculateBodyMetrics('auto');
     }
   }
 
-  recalculateBodyMetrics() {
-    const heightCm = this.bodyMetrics.heightCm;
-    const weightKg = this.bodyMetrics.currentWeightKg;
+  onBodyMetricInput(field: BodyMetricSourceField) {
+    if (!this.bodyMetricsAutoCalc) return;
+    this.recalculateBodyMetrics(field);
+  }
+
+  toggleBodyMetricsManualOverride() {
+    this.bodyMetricsManualOverride = !this.bodyMetricsManualOverride;
+
+    if (!this.bodyMetricsManualOverride && this.bodyMetricsAutoCalc) {
+      this.recalculateBodyMetrics('auto');
+    }
+  }
+
+  recalculateBodyMetrics(sourceField: BodyMetricSourceField = 'auto') {
+    const heightCm = this.toNumberOrNull(this.bodyMetrics.heightCm);
+    let weightKg = this.toNumberOrNull(this.bodyMetrics.currentWeightKg);
     const age = this.bodyMetrics.age ?? null;
     const gender = (this.bodyMetrics.gender || '').toLowerCase();
 
@@ -357,39 +408,101 @@ export class MemberProfileComponent implements OnInit {
     }
 
     const isSenior = age != null && age >= 50;
-    let ibwKg = heightCm - 105;
-    if (isSenior) {
-      ibwKg = heightCm - 100;
-    } else if (gender === 'female') {
-      ibwKg = heightCm - 107;
-    }
-
-    if (this.bodyMetrics.isLean && weightKg != null && weightKg > 0) {
-      ibwKg = weightKg;
+    let ibwKg = this.getAutoIbwKg(heightCm, gender, age, weightKg, this.bodyMetrics.isLean);
+    const manualIbwKg = this.toNumberOrNull(this.bodyMetrics.ibwKg);
+    if (sourceField === 'ibwKg' && manualIbwKg != null && manualIbwKg > 0) {
+      ibwKg = manualIbwKg;
     }
 
     const heightM = heightCm / 100;
-    const bmi = weightKg && heightM ? weightKg / (heightM * heightM) : null;
-
-    let bmr = ibwKg * 24;
-    if (!isSenior && gender === 'female') {
-      bmr = ibwKg * 22.5;
+    const manualBmi = this.toNumberOrNull(this.bodyMetrics.bmi);
+    let bmi = weightKg && heightM ? weightKg / (heightM * heightM) : null;
+    if (sourceField === 'bmi' && manualBmi != null && manualBmi > 0 && heightM > 0) {
+      bmi = manualBmi;
+      weightKg = bmi * heightM * heightM;
+      this.bodyMetrics.currentWeightKg = this.roundTo(weightKg, 1);
     }
 
-    const tdee = bmr * Number(this.bodyMetrics.activityFactor || 1.2);
-    const ibwLb = ibwKg * 2.20462;
-    const targetCalories = ibwLb * Number(this.bodyMetrics.targetCalorieFactor || 0);
+    const autoBmr = this.getAutoBmr(ibwKg, gender, age);
+    const manualBmr = this.toNumberOrNull(this.bodyMetrics.bmr);
+    const bmr = sourceField === 'bmr' && manualBmr != null && manualBmr > 0 ? manualBmr : autoBmr;
 
-    const proteinGrams = ibwKg * Number(this.bodyMetrics.proteinRda || 0);
-    const carbsGrams = ibwKg * Number(this.bodyMetrics.carbFactor || 0);
-    const fatsGrams = targetCalories
-      ? Math.max(0, (targetCalories - (proteinGrams * 4 + carbsGrams * 4)) / 9)
+    let activityFactor = this.toNumberOrNull(this.bodyMetrics.activityFactor) ?? 1.2;
+    let tdee = bmr * activityFactor;
+    const manualTdee = this.toNumberOrNull(this.bodyMetrics.tdee);
+    if (sourceField === 'tdee' && manualTdee != null && manualTdee > 0 && bmr > 0) {
+      tdee = manualTdee;
+      activityFactor = manualTdee / bmr;
+    } else {
+      tdee = bmr * activityFactor;
+    }
+
+    const ibwLb = ibwKg * 2.20462;
+    const autoTargetCalorieFactor = this.toNumberOrNull(this.bodyMetrics.targetCalorieFactor) ?? 0;
+    const autoTargetCalories = ibwLb * autoTargetCalorieFactor;
+    let targetCalorieFactor = autoTargetCalorieFactor;
+    let targetCalories = autoTargetCalories;
+    let proteinRda = this.toNumberOrNull(this.bodyMetrics.proteinRda) ?? 0;
+    let proteinGrams = ibwKg * proteinRda;
+    let carbFactor = this.toNumberOrNull(this.bodyMetrics.carbFactor) ?? 0;
+    let carbsGrams = ibwKg * carbFactor;
+    let fatsGrams = autoTargetCalories
+      ? Math.max(0, (autoTargetCalories - (proteinGrams * 4 + carbsGrams * 4)) / 9)
       : 0;
+
+    if (this.bodyMetricsManualOverride) {
+      targetCalories = this.toNumberOrNull(this.bodyMetrics.targetCalories) ?? autoTargetCalories;
+      proteinGrams = this.toNumberOrNull(this.bodyMetrics.proteinGrams) ?? proteinGrams;
+      carbsGrams = this.toNumberOrNull(this.bodyMetrics.carbsGrams) ?? carbsGrams;
+      fatsGrams = this.toNumberOrNull(this.bodyMetrics.fatsGrams) ?? fatsGrams;
+    } else {
+      const manualTargetCalories = this.toNumberOrNull(this.bodyMetrics.targetCalories);
+      if (sourceField === 'targetCalories' && manualTargetCalories != null && manualTargetCalories >= 0) {
+        targetCalories = manualTargetCalories;
+        targetCalorieFactor = ibwLb > 0 ? manualTargetCalories / ibwLb : targetCalorieFactor;
+      } else {
+        targetCalories = ibwLb * targetCalorieFactor;
+      }
+
+      const manualProteinGrams = this.toNumberOrNull(this.bodyMetrics.proteinGrams);
+      if (sourceField === 'proteinGrams' && manualProteinGrams != null && manualProteinGrams >= 0) {
+        proteinGrams = manualProteinGrams;
+        proteinRda = ibwKg > 0 ? manualProteinGrams / ibwKg : proteinRda;
+      } else {
+        proteinGrams = ibwKg * proteinRda;
+      }
+
+      const manualCarbsGrams = this.toNumberOrNull(this.bodyMetrics.carbsGrams);
+      if (sourceField === 'carbsGrams' && manualCarbsGrams != null && manualCarbsGrams >= 0) {
+        carbsGrams = manualCarbsGrams;
+        carbFactor = ibwKg > 0 ? manualCarbsGrams / ibwKg : carbFactor;
+      } else {
+        carbsGrams = ibwKg * carbFactor;
+      }
+
+      fatsGrams = targetCalories
+        ? Math.max(0, (targetCalories - (proteinGrams * 4 + carbsGrams * 4)) / 9)
+        : 0;
+      const manualFatsGrams = this.toNumberOrNull(this.bodyMetrics.fatsGrams);
+      if (sourceField === 'fatsGrams' && manualFatsGrams != null && manualFatsGrams >= 0) {
+        fatsGrams = manualFatsGrams;
+        targetCalories = proteinGrams * 4 + carbsGrams * 4 + fatsGrams * 9;
+        targetCalorieFactor = ibwLb > 0 ? targetCalories / ibwLb : targetCalorieFactor;
+      }
+
+      const normalizedTarget = this.normalizeTargetCaloriesForGoal(targetCalorieFactor, ibwLb);
+      targetCalorieFactor = normalizedTarget.factor;
+      targetCalories = normalizedTarget.calories;
+    }
 
     this.bodyMetrics.ibwKg = this.roundTo(ibwKg, 1);
     this.bodyMetrics.bmi = bmi != null ? this.roundTo(bmi, 1) : null;
     this.bodyMetrics.bmr = this.roundTo(bmr, 0);
+    this.bodyMetrics.activityFactor = this.roundTo(activityFactor, 3);
     this.bodyMetrics.tdee = this.roundTo(tdee, 0);
+    this.bodyMetrics.targetCalorieFactor = this.roundTo(targetCalorieFactor, 2);
+    this.bodyMetrics.proteinRda = this.roundTo(proteinRda, 2);
+    this.bodyMetrics.carbFactor = this.roundTo(carbFactor, 2);
     this.bodyMetrics.targetCalories = this.roundTo(targetCalories, 0);
     this.bodyMetrics.proteinGrams = this.roundTo(proteinGrams, 0);
     this.bodyMetrics.carbsGrams = this.roundTo(carbsGrams, 0);
@@ -401,14 +514,14 @@ export class MemberProfileComponent implements OnInit {
     if (goalConfig) {
       this.bodyMetrics.targetCalorieFactor = goalConfig.defaultFactor;
       if (this.bodyMetricsAutoCalc) {
-        this.recalculateBodyMetrics();
+        this.recalculateBodyMetrics('targetCalorieFactor');
       }
     }
   }
 
   onTrainingHistoryChange() {
     if (this.bodyMetricsAutoCalc) {
-      this.recalculateBodyMetrics();
+      this.recalculateBodyMetrics('proteinRda');
     }
   }
 
@@ -424,32 +537,39 @@ export class MemberProfileComponent implements OnInit {
     const activityFactor = this.toNumberOrNull(this.bodyMetrics.activityFactor);
     const proteinRda = this.toNumberOrNull(this.bodyMetrics.proteinRda);
     const carbFactor = this.toNumberOrNull(this.bodyMetrics.carbFactor);
-    const targetCalorieFactor = this.toNumberOrNull(this.bodyMetrics.targetCalorieFactor);
+    const rawTargetCalorieFactor = this.toNumberOrNull(this.bodyMetrics.targetCalorieFactor);
     const gender = (this.bodyMetrics.gender || '').trim();
     const targetGoal = this.targetGoalMap[this.bodyMetrics.targetGoal] ?? null;
+    const ibwKg = this.toNumberOrNull(this.bodyMetrics.ibwKg);
+    const ibwLb = ibwKg != null ? ibwKg * 2.20462 : 0;
+    const normalizedTarget = this.normalizeTargetCaloriesForGoal(rawTargetCalorieFactor ?? 0, ibwLb);
+    const targetCalorieFactor = normalizedTarget.factor;
+    const targetCalories = this.bodyMetricsManualOverride
+      ? (this.toNumberOrNull(this.bodyMetrics.targetCalories) ?? normalizedTarget.calories)
+      : normalizedTarget.calories;
 
     if (!heightCm || !currentWeightKg || !age || !gender || !activityFactor || !proteinRda || !targetGoal || !targetCalorieFactor) {
       this.bodyMetricsMessage = 'Please fill all required fields before saving';
       this.bodyMetricsSaving = false;
       return;
     }
-    if (activityFactor < 1.2 || activityFactor > 1.9) {
-      this.bodyMetricsMessage = 'Activity factor must be between 1.2 and 1.9';
+    if (activityFactor <= 0) {
+      this.bodyMetricsMessage = 'Activity factor must be greater than 0';
       this.bodyMetricsSaving = false;
       return;
     }
-    if (proteinRda < 0.8 || proteinRda > 2.0) {
-      this.bodyMetricsMessage = 'Protein RDA must be between 0.8 and 2.0';
+    if (proteinRda <= 0) {
+      this.bodyMetricsMessage = 'Protein RDA must be greater than 0';
       this.bodyMetricsSaving = false;
       return;
     }
-    if (carbFactor != null && (carbFactor < 3.0 || carbFactor > 4.0)) {
-      this.bodyMetricsMessage = 'Carb factor must be between 3.0 and 4.0';
+    if (carbFactor != null && carbFactor < 0) {
+      this.bodyMetricsMessage = 'Carb factor must be 0 or greater';
       this.bodyMetricsSaving = false;
       return;
     }
-    if (targetCalorieFactor < 10 || targetCalorieFactor > 16) {
-      this.bodyMetricsMessage = 'Target calorie factor must be between 10 and 16';
+    if (targetCalorieFactor <= 0) {
+      this.bodyMetricsMessage = 'Target calorie factor must be greater than 0';
       this.bodyMetricsSaving = false;
       return;
     }
@@ -469,20 +589,27 @@ export class MemberProfileComponent implements OnInit {
       bmi: this.toNumberOrNull(this.bodyMetrics.bmi),
       bmr: this.toNumberOrNull(this.bodyMetrics.bmr),
       tdee: this.toNumberOrNull(this.bodyMetrics.tdee),
-      targetCalories: this.toNumberOrNull(this.bodyMetrics.targetCalories),
+      targetCalories,
       proteinGrams: this.toNumberOrNull(this.bodyMetrics.proteinGrams),
       carbsGrams: this.toNumberOrNull(this.bodyMetrics.carbsGrams),
       fatsGrams: this.toNumberOrNull(this.bodyMetrics.fatsGrams)
     };
+
+    this.bodyMetrics.targetCalorieFactor = this.roundTo(targetCalorieFactor, 2);
+    if (!this.bodyMetricsManualOverride) {
+      this.bodyMetrics.targetCalories = this.roundTo(targetCalories, 0);
+    }
 
     this.memberApi.updateBodyMetrics(this.member.id, payload).subscribe({
       next: (res: any) => {
         const metrics = res?.bodyMetrics ?? res;
         if (metrics) {
           this.applyBodyMetrics(metrics);
+          this.bodyMetricsManualOverride =
+            this.bodyMetricsManualOverride || this.inferBodyMetricsManualOverride(metrics);
         }
-        if (this.bodyMetricsAutoCalc) {
-          this.recalculateBodyMetrics();
+        if (this.bodyMetricsAutoCalc && !this.bodyMetricsManualOverride) {
+          this.recalculateBodyMetrics('auto');
         }
         if (this.member) {
           this.member.bodyMetrics = metrics ?? payload;
@@ -500,6 +627,119 @@ export class MemberProfileComponent implements OnInit {
   private roundTo(value: number, decimals: number) {
     const factor = Math.pow(10, decimals);
     return Math.round(value * factor) / factor;
+  }
+
+  private getAutoIbwKg(
+    heightCm: number,
+    gender: string,
+    age: number | null,
+    weightKg: number | null,
+    isLean: boolean
+  ): number {
+    const isSenior = age != null && age >= 50;
+    let ibwKg = heightCm - 105;
+
+    if (isSenior) {
+      ibwKg = heightCm - 100;
+    } else if (gender === 'female') {
+      ibwKg = heightCm - 107;
+    }
+
+    if (isLean && weightKg != null && weightKg > 0) {
+      return weightKg;
+    }
+
+    return ibwKg;
+  }
+
+  private getAutoBmr(ibwKg: number, gender: string, age: number | null): number {
+    const isSenior = age != null && age >= 50;
+    if (!isSenior && gender === 'female') {
+      return ibwKg * 22.5;
+    }
+
+    return ibwKg * 24;
+  }
+
+  private normalizeTargetCaloriesForGoal(
+    factor: number,
+    ibwLb: number
+  ): { factor: number; calories: number } {
+    const goalConfig = this.targetGoalOptions.find((g) => g.value === this.bodyMetrics.targetGoal);
+    if (!goalConfig) {
+      return {
+        factor,
+        calories: ibwLb > 0 ? ibwLb * factor : 0
+      };
+    }
+
+    const clampedFactor = Math.min(goalConfig.max, Math.max(goalConfig.min, factor));
+    return {
+      factor: clampedFactor,
+      calories: ibwLb > 0 ? ibwLb * clampedFactor : 0
+    };
+  }
+
+  private inferBodyMetricsManualOverride(source: any): boolean {
+    if (!source) return false;
+    if (typeof source.manualOverride === 'boolean') {
+      return source.manualOverride;
+    }
+
+    const heightCm = this.toNumberOrNull(source.heightCm);
+    const currentWeightKg = this.toNumberOrNull(source.currentWeightKg);
+    const age = this.toNumberOrNull(source.age);
+    const gender = String(source.gender || '').toLowerCase();
+    const isLean = Boolean(source.isLean);
+    const targetGoal = this.targetGoalReverseMap[source.targetGoal] ?? source.targetGoal ?? this.bodyMetrics.targetGoal;
+    const proteinRda = this.toNumberOrNull(source.proteinRda);
+    const carbFactor = this.toNumberOrNull(source.carbFactor);
+    const targetCalorieFactor = this.toNumberOrNull(source.targetCalorieFactor);
+    const savedTargetCalories = this.toNumberOrNull(source.targetCalories);
+    const savedProteinGrams = this.toNumberOrNull(source.proteinGrams);
+    const savedCarbsGrams = this.toNumberOrNull(source.carbsGrams);
+    const savedFatsGrams = this.toNumberOrNull(source.fatsGrams);
+
+    if (
+      heightCm == null ||
+      currentWeightKg == null ||
+      age == null ||
+      !gender ||
+      proteinRda == null ||
+      carbFactor == null ||
+      targetCalorieFactor == null
+    ) {
+      return false;
+    }
+
+    const ibwKg = this.getAutoIbwKg(heightCm, gender, age, currentWeightKg, isLean);
+    const ibwLb = ibwKg * 2.20462;
+    const goalConfig = this.targetGoalOptions.find((g) => g.value === targetGoal);
+    const normalizedFactor = goalConfig
+      ? Math.min(goalConfig.max, Math.max(goalConfig.min, targetCalorieFactor))
+      : targetCalorieFactor;
+    const autoTargetCalories = ibwLb > 0 ? ibwLb * normalizedFactor : 0;
+    const autoProteinGrams = ibwKg * proteinRda;
+    const autoCarbsGrams = ibwKg * carbFactor;
+    const autoFatsGrams = autoTargetCalories
+      ? Math.max(0, (autoTargetCalories - (autoProteinGrams * 4 + autoCarbsGrams * 4)) / 9)
+      : 0;
+
+    return (
+      this.hasMeaningfulDifference(savedTargetCalories, autoTargetCalories, 1) ||
+      this.hasMeaningfulDifference(savedProteinGrams, autoProteinGrams, 1) ||
+      this.hasMeaningfulDifference(savedCarbsGrams, autoCarbsGrams, 1) ||
+      this.hasMeaningfulDifference(savedFatsGrams, autoFatsGrams, 1)
+    );
+  }
+
+  private hasMeaningfulDifference(
+    current: number | null,
+    expected: number | null,
+    tolerance: number
+  ): boolean {
+    if (current == null || expected == null) return false;
+    return Math.abs(current - expected) > tolerance;
   }
 
   private toNumberOrNull(value: any): number | null {
@@ -606,9 +846,11 @@ loadSubscription() {
     next: (res: any[]) => {
 
       // API returns array → take first
-      this.subscription = res?.length ? res[0] : null;
-      if (!this.overrideActiveSince && this.subscription?.startDate) {
-        this.overrideActiveSince = this.normalizeDateInput(this.subscription.startDate);
+      this.subscriptionHistory = Array.isArray(res) ? res : [];
+      this.subscription = this.subscriptionHistory.length ? this.subscriptionHistory[0] : null;
+      const originalStartDate = this.getOriginalSubscriptionStartDate();
+      if (!this.overrideActiveSince && originalStartDate) {
+        this.overrideActiveSince = this.normalizeDateInput(originalStartDate);
       }
       if (!this.overrideRenewalDate && this.subscription?.endDate) {
         this.overrideRenewalDate = this.normalizeDateInput(this.subscription.endDate);
@@ -624,7 +866,7 @@ loadSubscription() {
 }
 
 get displayedActiveSince(): string {
-  return this.overrideActiveSince || this.subscription?.startDate || '-';
+  return this.overrideActiveSince || this.getOriginalSubscriptionStartDate() || this.subscription?.startDate || '-';
 }
 
 get displayedRenewalDate(): string {
@@ -756,14 +998,15 @@ private normalizeDateInput(value: string): string {
   return parsed.toISOString().slice(0, 10);
 }
 
-loadPayments() {
-  this.paymentsLoading = true;
-  this.billingApi.getPaymentHistory(this.member.id).subscribe({
-    next: (res: any[]) => {
-      this.payments = [...(res || [])];
-      this.calculatePaymentSummary();
-      this.paymentsLoading = false;
-      this.cdr.detectChanges();
+  loadPayments() {
+    this.paymentsLoading = true;
+    this.billingApi.getPaymentHistory(this.member.id).subscribe({
+      next: (res: any[]) => {
+        this.payments = [...(res || [])];
+        this.initializeConfirmPaymentDates();
+        this.calculatePaymentSummary();
+        this.paymentsLoading = false;
+        this.cdr.detectChanges();
     },
     error: () => {
       this.paymentsLoading = false;
@@ -798,8 +1041,12 @@ startManualPayment() {
 
 confirmPayment(paymentId: string) {
 
-  this.billingApi.confirmPayment(paymentId).subscribe({
+  this.billingApi.confirmPayment(
+    paymentId,
+    this.confirmPaymentDates[paymentId] || this.getTodayDateInput()
+  ).subscribe({
     next: () => {
+      this.clearStoredSubscriptionOverride();
 
       // refresh everything
       this.subscriptionLoading = true;
@@ -1340,7 +1587,7 @@ exportDietPlanToExcel() {
     mealGroup.items?.forEach((item: any, itemIndex: number) => {
       rows.push([
         itemIndex === 0 ? mealGroup.mealName : '',
-        item.foodName || '',
+        this.getDietItemDisplayName(item.foodName),
         item.quantity ?? '',
         item.unit || '',
         item.calories ?? ''
@@ -1425,8 +1672,8 @@ getPhotoUrl(fileName: string) {
   return `${this.env.checkinApi}/checkin/photos/file/${fileName}`;
 }
 
-prepareComparison() {
-  if (!this.progressCheckins || this.progressCheckins.length === 0) return;
+  prepareComparison() {
+    if (!this.progressCheckins || this.progressCheckins.length === 0) return;
 
   const sorted = [...this.progressCheckins].sort(
     (a, b) =>
@@ -1438,8 +1685,8 @@ prepareComparison() {
   this.previousCheckin = sorted[1] || null;
 }
 
-getDelta(current?: number, previous?: number): string {
-  if (current == null || previous == null) return '-';
+  getDelta(current?: number, previous?: number): string {
+    if (current == null || previous == null) return '-';
 
   const diff = current - previous;
 
@@ -1487,6 +1734,119 @@ onPhotoDragEnd(): void {
   this.draggedPhoto = null;
 }
 
+openProgressComparison() {
+  if (!this.currentCheckin || !this.previousCheckin) return;
+  this.showProgressComparisonModal = true;
+  this.isProgressComparisonMaximized = false;
+  this.comparisonZoomLevel = 1;
+}
+
+closeProgressComparison() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => undefined);
+  }
+  this.showProgressComparisonModal = false;
+  this.isProgressComparisonMaximized = false;
+  this.comparisonZoomLevel = 1;
+}
+
+toggleProgressComparisonMaximize() {
+  const modalElement = this.comparisonModalRef?.nativeElement;
+  if (!modalElement) return;
+
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => undefined);
+    this.isProgressComparisonMaximized = false;
+    return;
+  }
+
+  modalElement.requestFullscreen().then(() => {
+    this.isProgressComparisonMaximized = true;
+  }).catch(() => {
+    this.isProgressComparisonMaximized = false;
+  });
+}
+
+zoomInComparison() {
+  this.comparisonZoomLevel = Math.min(2.5, this.roundTo(this.comparisonZoomLevel + 0.25, 2));
+}
+
+zoomOutComparison() {
+  this.comparisonZoomLevel = Math.max(0.5, this.roundTo(this.comparisonZoomLevel - 0.25, 2));
+}
+
+resetComparisonZoom() {
+  this.comparisonZoomLevel = 1;
+}
+
+@HostListener('document:fullscreenchange')
+onFullscreenChange() {
+  this.isProgressComparisonMaximized = !!document.fullscreenElement;
+}
+
+get canCompareProgress(): boolean {
+  return !!this.currentCheckin && !!this.previousCheckin;
+}
+
+get currentDietPlanSummary(): string {
+  const calories = this.toNumberOrNull(this.bodyMetrics.targetCalories);
+  const carbs = this.toNumberOrNull(this.bodyMetrics.carbsGrams);
+  const protein = this.toNumberOrNull(this.bodyMetrics.proteinGrams);
+  const fats = this.toNumberOrNull(this.bodyMetrics.fatsGrams);
+
+  const macroParts = [
+    carbs != null ? `${carbs}g Carbs` : null,
+    protein != null ? `${protein}g Protein` : null,
+    fats != null ? `${fats}g Fats` : null
+  ].filter((value): value is string => !!value);
+
+  if (calories != null && macroParts.length) {
+    return `${calories} Calories (${macroParts.join(', ')})`;
+  }
+
+  if (this.dietPlan?.title) {
+    return this.dietPlan.title;
+  }
+
+  return 'NA';
+}
+
+getComparisonValue(checkin: any, field: 'weight' | 'stepsAvg' | 'dietAdherence' | 'energy' | 'exerciseRating'): string {
+  const value = field === 'exerciseRating'
+    ? (checkin?.exerciseRating ?? checkin?.energy)
+    : checkin?.[field];
+
+  if (value == null || value === '') return 'NA';
+  if (field === 'weight') return `${value} kg`;
+  return `${value}`;
+}
+
+getComparisonDelta(field: 'weight' | 'stepsAvg' | 'dietAdherence' | 'energy' | 'exerciseRating'): string {
+  if (!this.currentCheckin || !this.previousCheckin) return 'NA';
+
+  const current = Number(
+    field === 'exerciseRating'
+      ? (this.currentCheckin?.exerciseRating ?? this.currentCheckin?.energy)
+      : this.currentCheckin?.[field]
+  );
+  const previous = Number(
+    field === 'exerciseRating'
+      ? (this.previousCheckin?.exerciseRating ?? this.previousCheckin?.energy)
+      : this.previousCheckin?.[field]
+  );
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) return 'NA';
+
+  const diff = this.roundToTwo(current - previous);
+  const prefix = diff > 0 ? '+' : '';
+  const suffix = field === 'weight' ? ' kg' : '';
+  return `${prefix}${diff}${suffix}`;
+}
+
+getComparisonNotes(checkin: any): string {
+  const notes = String(checkin?.notes || '').trim();
+  return notes || 'NA';
+}
+
 calculateProgressSummary() {
   if (!this.progressCheckins?.length) return;
 
@@ -1532,6 +1892,58 @@ private getCheckinDateValue(value: string | null | undefined): number {
 
 private roundToTwo(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+private initializeConfirmPaymentDates(): void {
+  const today = this.getTodayDateInput();
+  const nextDates: Record<string, string> = {};
+
+  (this.payments || []).forEach((payment) => {
+    if (payment?.status === 'PENDING' && payment?.mode === 'MANUAL') {
+      nextDates[payment.id] = this.normalizeDateInput(payment.paymentDate) || today;
+    }
+  });
+
+  this.confirmPaymentDates = nextDates;
+}
+
+private getTodayDateInput(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+private clearStoredSubscriptionOverride(): void {
+  localStorage.removeItem(this.getOverrideStorageKey());
+  this.overrideActiveSince = '';
+  this.overrideRenewalDate = '';
+  this.overrideMessage = null;
+}
+
+private getOriginalSubscriptionStartDate(): string | null {
+  if (!this.subscriptionHistory.length) {
+    return this.subscription?.startDate || null;
+  }
+
+  const startDates = this.subscriptionHistory
+    .map((item) => String(item?.startDate || '').trim())
+    .filter(Boolean)
+    .sort();
+
+  return startDates[0] || null;
+}
+
+private parseDietItemFoodName(foodName: any): { primaryFoodName: string; optionalAlternatives: string[] } {
+  const rawValue = String(foodName || '').trim();
+  const match = rawValue.match(/^(.*?)(?:\s*\[\[OPT:(.*?)\]\])?$/);
+  const primaryFoodName = String(match?.[1] || rawValue).trim();
+  const optionalAlternatives = String(match?.[2] || '')
+    .split('|')
+    .map((item) => item.trim())
+    .filter((item, index, list) => !!item && list.findIndex((entry) => entry.toLowerCase() === item.toLowerCase()) === index);
+
+  return {
+    primaryFoodName,
+    optionalAlternatives
+  };
 }
 
 }

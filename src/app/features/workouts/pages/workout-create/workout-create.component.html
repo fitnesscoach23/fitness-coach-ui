@@ -49,15 +49,33 @@
     <article *ngFor="let p of memberPlans" class="plan-card">
       <header class="plan-header">
         <div>
-          <h3>{{ p.title }}</h3>
+          <ng-container *ngIf="editablePlanId !== p.id; else editablePlanTitle">
+            <h3>{{ p.title }}</h3>
+          </ng-container>
+          <ng-template #editablePlanTitle>
+            <div class="field-group plan-header-field">
+              <label>Plan Title</label>
+              <input [(ngModel)]="p.title" placeholder="e.g. 4-Day Hypertrophy Block" />
+            </div>
+          </ng-template>
           <p class="plan-meta">
             <span *ngIf="p.createdAt">Created {{ p.createdAt | date:'mediumDate' }}</span>
             <span *ngIf="!p.createdAt">Created date unavailable</span>
             <span class="dot">•</span>
             <span>{{ p.gridRows?.length || 0 }} rows</span>
           </p>
-          <p class="plan-notes" *ngIf="p.notes">{{ p.notes }}</p>
-          <p class="plan-notes muted" *ngIf="!p.notes">No additional notes.</p>
+          <ng-container *ngIf="editablePlanId !== p.id; else editablePlanNotes">
+            <p class="plan-notes" *ngIf="p.notes">{{ p.notes }}</p>
+            <p class="plan-notes muted" *ngIf="!p.notes">No additional notes.</p>
+          </ng-container>
+          <ng-template #editablePlanNotes>
+            <div class="notes-panel inline-notes-panel">
+              <label>Additional Notes</label>
+              <textarea
+                [(ngModel)]="p.notes"
+                placeholder="Goals, constraints, progression cues, warmup focus, technique reminders"></textarea>
+            </div>
+          </ng-template>
         </div>
 
         <div class="plan-actions">

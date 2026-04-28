@@ -27,52 +27,318 @@
       </div>
     </div>
 
-    <!-- Placeholder KPI cards (UI-ready for future backend stats) -->
-
     <div class="kpi-card">
       <div class="kpi-label">Active Plans</div>
-      <div class="kpi-value">18</div>
-      <div class="kpi-meta">Workout + Diet</div>
+
+      <div class="kpi-value" *ngIf="!kpiLoading">
+        {{ activePlanCount }}
+      </div>
+
+      <div class="kpi-value loading" *ngIf="kpiLoading">
+        Loading...
+      </div>
+
+      <div class="kpi-meta" *ngIf="!kpiLoading">
+        {{ activeWorkoutPlanCount }} Workout + {{ activeDietPlanCount }} Diet
+      </div>
     </div>
 
     <div class="kpi-card">
       <div class="kpi-label">Monthly Revenue</div>
-      <div class="kpi-value">₹ 48,000</div>
-      <div class="kpi-meta">+12% vs last month</div>
+
+      <div class="kpi-value" *ngIf="!kpiLoading">
+        {{ formatCurrency(monthlyRevenue) }}
+      </div>
+
+      <div class="kpi-value loading" *ngIf="kpiLoading">
+        Loading...
+      </div>
+
+      <div class="kpi-meta" *ngIf="!kpiLoading">
+        {{ revenueTrendLabel }}
+      </div>
     </div>
 
     <div class="kpi-card">
       <div class="kpi-label">Check-ins This Week</div>
-      <div class="kpi-value">9</div>
-      <div class="kpi-meta">5 pending review</div>
+
+      <div class="kpi-value" *ngIf="!kpiLoading">
+        {{ weeklyCheckinCount }}
+      </div>
+
+      <div class="kpi-value loading" *ngIf="kpiLoading">
+        Loading...
+      </div>
+
+      <div class="kpi-meta" *ngIf="!kpiLoading">
+        {{ pendingReviewCount }} pending review
+      </div>
     </div>
 
   </div>
 
-  <div class="dashboard-section">
-    <div class="section-head">
-      <h2>Billing Due In 7 Days</h2>
-      <p>Members with pending billing that needs follow-up soon.</p>
-    </div>
+  <div class="dashboard-section smart-section">
+    <div class="smart-panel">
+      <div class="smart-panel-head">
+        <div class="section-head">
+          <h2>Attention Center</h2>
+          <p>Switch between progress check-ins and billing without stretching the dashboard.</p>
+        </div>
 
-    <div class="due-list-card">
-      <div *ngIf="dueSoonLoading" class="due-state">Loading due members...</div>
-
-      <div *ngIf="!dueSoonLoading && !dueSoonMembers.length" class="due-state">
-        No members with pending billing in the next 7 days.
+        <div class="smart-tabs" role="tablist" aria-label="Dashboard attention sections">
+          <button
+            type="button"
+            [class.active]="activeSmartPanel === 'checkins'"
+            (click)="setSmartPanel('checkins')">
+            Check-ins
+            <span>{{ dueCheckinCount }} due</span>
+          </button>
+          <button
+            type="button"
+            [class.active]="activeSmartPanel === 'billing'"
+            (click)="setSmartPanel('billing')">
+            Billing
+            <span>{{ billingAttentionCount }} due</span>
+          </button>
+        </div>
       </div>
 
-      <div *ngIf="!dueSoonLoading && dueSoonMembers.length" class="due-list">
-        <div class="due-item" *ngFor="let member of dueSoonMembers">
-          <div class="due-main">
-            <strong>{{ member.fullName }}</strong>
-            <span>{{ member.email }}</span>
+      <div class="smart-panel-body" *ngIf="activeSmartPanel === 'checkins'">
+        <div class="checkin-settings-card compact-controls">
+          <label>
+            Member
+            <select [(ngModel)]="checkinCadenceMemberId" (ngModelChange)="onCheckinCadenceMemberChange()">
+              <option value="" disabled>Select member</option>
+              <option *ngFor="let member of members" [value]="member.id">
+                {{ member.fullName }} ({{ member.email }})
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Cadence
+            <select [(ngModel)]="checkinCadenceDays">
+              <option [ngValue]="7">Every 1 week</option>
+              <option [ngValue]="14">Every 2 weeks</option>
+            </select>
+          </label>
+
+          <div class="checkin-settings-actions">
+            <button type="button" class="primary-action" (click)="saveCheckinCadence()">Save</button>
+            <button type="button" class="secondary-action" (click)="clearCheckinCadence()">Remove</button>
           </div>
-          <div class="due-meta">
-            <span>Renewal: {{ formatDate(member.renewalDate) }}</span>
-            <span>{{ member.daysRemaining }} day{{ member.daysRemaining === 1 ? '' : 's' }} left</span>
-            <span>Pending: ₹ {{ member.totalPending }}</span>
+        </div>
+
+        <div class="checkin-layout-compact">
+          <div class="smart-scroll-list checkin-list-card">
+            <div *ngIf="checkinReminderLoading" class="due-state">Loading check-in reminders...</div>
+
+            <div *ngIf="!checkinReminderLoading && !checkinReminderRows.length" class="due-state">
+              No members found for progress check-in tracking.
+            </div>
+
+            <div *ngIf="!checkinReminderLoading && checkinReminderRows.length" class="checkin-list">
+              <button
+                type="button"
+                class="checkin-reminder-item"
+                [class.selected]="selectedCheckinMember?.id === member.id"
+                [class.not-configured]="!member.cadenceConfigured"
+                [class.overdue-checkin]="isCheckinOverdue(member.daysUntilDue)"
+                *ngFor="let member of checkinReminderRows"
+                (click)="selectCheckinMember(member)">
+                <div class="due-main">
+                  <strong>{{ member.fullName }}</strong>
+                  <span>{{ member.email }}</span>
+                </div>
+
+                <div class="checkin-reminder-meta">
+                  <span>{{ member.cadenceConfigured ? (member.cadenceDays === 7 ? '1-week' : '2-week') + ' check-in' : 'Cadence not set' }}</span>
+                  <span>Last: {{ formatDate(member.lastCheckinDate) }}</span>
+                  <span>Due: {{ formatDate(member.nextCheckinDate) }}</span>
+                  <span>{{ member.cadenceConfigured ? getCheckinDueLabel(member.daysUntilDue) : 'Set cadence to enable reminders' }}</span>
+                </div>
+              </button>
+            </div>
           </div>
+
+          <div class="checkin-summary-card" *ngIf="selectedCheckinMember; else noCheckinMemberSelected">
+            <div class="checkin-summary-head">
+              <div>
+                <div class="snapshot-eyebrow checkin-eyebrow">
+                  {{ selectedCheckinMember.cadenceConfigured ? 'Latest Progress Summary' : 'Tracking Setup Needed' }}
+                </div>
+                <h3>{{ selectedCheckinMember.fullName }}</h3>
+                <p>{{ selectedCheckinMember.email }}</p>
+              </div>
+              <div class="checkin-summary-date">
+                {{ formatDate(selectedCheckinMember.lastCheckinDate) }}
+              </div>
+            </div>
+
+            <div class="checkin-summary-grid">
+              <div>
+                <span>Weight</span>
+                <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestWeight, ' kg') }}</strong>
+                <em [class]="getCheckinTrendClass(selectedCheckinMember.weightDelta, true)">
+                  {{ getCheckinDeltaLabel(selectedCheckinMember.weightDelta, ' kg') }}
+                </em>
+              </div>
+              <div>
+                <span>Steps Avg</span>
+                <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestSteps) }}</strong>
+                <em [class]="getCheckinTrendClass(selectedCheckinMember.stepsDelta)">
+                  {{ getCheckinDeltaLabel(selectedCheckinMember.stepsDelta) }}
+                </em>
+              </div>
+              <div>
+                <span>Diet Adherence</span>
+                <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestDietAdherence, '/10') }}</strong>
+                <em>Latest</em>
+              </div>
+              <div>
+                <span>Energy</span>
+                <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestEnergy, '/10') }}</strong>
+                <em>Latest</em>
+              </div>
+              <div>
+                <span>Exercise Rating</span>
+                <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestExerciseRating, '/10') }}</strong>
+                <em>Latest</em>
+              </div>
+              <div>
+                <span>Check-ins Logged</span>
+                <strong>{{ selectedCheckinMember.checkinCount }}</strong>
+                <em>{{ selectedCheckinMember.cadenceConfigured ? getCheckinDueLabel(selectedCheckinMember.daysUntilDue) : 'No cadence set' }}</em>
+              </div>
+            </div>
+
+            <div class="checkin-summary-notes">
+              <span>Coach Notes</span>
+              <p>{{ selectedCheckinMember.latestNotes || 'No notes on the latest progress check-in.' }}</p>
+            </div>
+
+            <div class="checkin-summary-footer">
+              <div>
+                <span>Current vs Previous</span>
+                <strong>
+                  {{ formatDate(selectedCheckinMember.latestCheckin?.submittedAt) }}
+                  <ng-container *ngIf="selectedCheckinMember.previousCheckin">
+                    vs {{ formatDate(selectedCheckinMember.previousCheckin?.submittedAt) }}
+                  </ng-container>
+                </strong>
+              </div>
+              <div>
+                <span>Next Due</span>
+                <strong>{{ formatDate(selectedCheckinMember.nextCheckinDate) }}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <ng-template #noCheckinMemberSelected>
+          <div class="billing-empty-detail">
+            Select a member row to view the latest progress summary.
+          </div>
+        </ng-template>
+      </div>
+
+      <div class="smart-panel-body billing-layout-compact" *ngIf="activeSmartPanel === 'billing'">
+        <div class="smart-scroll-list due-list-card">
+          <div *ngIf="dueSoonLoading" class="due-state">Loading due members...</div>
+
+          <div *ngIf="!dueSoonLoading && !dueSoonMembers.length" class="due-state">
+            No members with pending billing due soon or overdue.
+          </div>
+
+          <div *ngIf="!dueSoonLoading && dueSoonMembers.length" class="due-list">
+            <button
+              type="button"
+              class="due-item"
+              [class.overdue-item]="isOverdue(member.daysRemaining)"
+              [class.selected]="selectedDueMember?.id === member.id"
+              *ngFor="let member of dueSoonMembers"
+              (click)="selectDueMember(member)">
+              <div class="due-main">
+                <strong>{{ member.fullName }}</strong>
+                <span>{{ member.email }}</span>
+              </div>
+              <div class="due-meta">
+                <span>Renewal: {{ formatDate(member.renewalDate) }}</span>
+                <span>{{ getBillingAttentionLabel(member.daysRemaining) }}</span>
+                <span>Pending: {{ formatCurrency(member.totalPending) }}</span>
+                <span>{{ member.amountSource }}</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div class="billing-detail-stack" *ngIf="selectedDueMember">
+          <div class="snapshot-editor">
+            <label>
+              Pending Amount
+              <input type="number" min="0" [(ngModel)]="snapshotDraftAmount" />
+            </label>
+            <label>
+              Renewal Date
+              <input type="date" [(ngModel)]="snapshotDraftRenewalDate" />
+            </label>
+            <div class="snapshot-editor-actions">
+              <button type="button" class="primary-action" (click)="saveSnapshotEdits()">Save</button>
+              <button type="button" class="secondary-action" (click)="resetSnapshotEdits()">Reset</button>
+            </div>
+          </div>
+
+          <div
+            class="billing-snapshot compact-snapshot"
+            [class.overdue-snapshot]="isOverdue(selectedDueMember.daysRemaining)">
+            <div class="snapshot-top">
+              <div>
+                <div class="snapshot-eyebrow">
+                  {{ isOverdue(selectedDueMember.daysRemaining) ? 'Billing Overdue' : 'Billing Due Soon' }}
+                </div>
+                <h3>{{ selectedDueMember.fullName }}</h3>
+                <p>{{ selectedDueMember.email }}</p>
+                <p *ngIf="selectedDueMember.phone">{{ selectedDueMember.phone }}</p>
+              </div>
+
+              <button type="button" class="snapshot-close" (click)="clearSelectedDueMember()" aria-label="Close billing snapshot">
+                X
+              </button>
+            </div>
+
+            <div class="snapshot-amount">
+              <span>Pending Amount</span>
+              <strong>{{ formatCurrency(selectedDueMember.totalPending) }}</strong>
+            </div>
+
+            <div class="snapshot-grid">
+              <div>
+                <span>Renewal Date</span>
+                <strong>{{ formatDate(selectedDueMember.renewalDate) }}</strong>
+              </div>
+              <div>
+                <span>Status</span>
+                <strong>{{ getBillingAttentionLabel(selectedDueMember.daysRemaining) }}</strong>
+              </div>
+              <div>
+                <span>Plan</span>
+                <strong>{{ selectedDueMember.planName }}</strong>
+              </div>
+              <div>
+                <span>Active Since</span>
+                <strong>{{ formatDate(selectedDueMember.activeSince) }}</strong>
+              </div>
+            </div>
+
+            <div class="snapshot-note">
+              Hi {{ selectedDueMember.fullName }}, your membership renewal is pending. Please clear the due amount of
+              {{ formatCurrency(selectedDueMember.totalPending) }} to continue your coaching plan.
+            </div>
+          </div>
+        </div>
+
+        <div class="billing-empty-detail" *ngIf="!selectedDueMember">
+          Select a billing row to preview the screenshot card.
         </div>
       </div>
     </div>

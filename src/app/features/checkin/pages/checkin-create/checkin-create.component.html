@@ -51,6 +51,7 @@
   <form class="editor-card" (ngSubmit)="submit()">
     <div class="section-heading">
       <h2>Progress Details</h2>
+      <p *ngIf="editingCheckinId">Editing selected check-in from history.</p>
     </div>
 
     <div class="form-grid">
@@ -77,6 +78,11 @@
       <div class="field-group span-2">
         <label for="stepsAvg">Average Daily Steps</label>
         <input id="stepsAvg" type="number" [(ngModel)]="stepsAvg" name="stepsAvg" />
+      </div>
+
+      <div class="field-group span-2">
+        <label for="exerciseRating">Exercise Rating (1-10)</label>
+        <input id="exerciseRating" type="number" min="1" max="10" [(ngModel)]="exerciseRating" name="exerciseRating" />
       </div>
     </div>
 
@@ -134,7 +140,7 @@
     <div class="photo-grid">
       <div class="photo-card">
         <label for="frontPhoto">Front</label>
-        <input id="frontPhoto" type="file" accept="image/*" (change)="onPhotoSelected($event, 'FRONT')" />
+        <input id="frontPhoto" type="file" accept="image/*,.heic,.heif,image/heic,image/heif" (change)="onPhotoSelected($event, 'FRONT')" />
         <span class="status-pill" [class.done]="photoStatus.front">
           {{ photoStatus.front ? 'Selected' : 'Missing' }}
         </span>
@@ -142,7 +148,7 @@
 
       <div class="photo-card">
         <label for="sidePhoto">Side</label>
-        <input id="sidePhoto" type="file" accept="image/*" (change)="onPhotoSelected($event, 'SIDE')" />
+        <input id="sidePhoto" type="file" accept="image/*,.heic,.heif,image/heic,image/heif" (change)="onPhotoSelected($event, 'SIDE')" />
         <span class="status-pill" [class.done]="photoStatus.side">
           {{ photoStatus.side ? 'Selected' : 'Missing' }}
         </span>
@@ -150,7 +156,7 @@
 
       <div class="photo-card">
         <label for="backPhoto">Back</label>
-        <input id="backPhoto" type="file" accept="image/*" (change)="onPhotoSelected($event, 'BACK')" />
+        <input id="backPhoto" type="file" accept="image/*,.heic,.heif,image/heic,image/heif" (change)="onPhotoSelected($event, 'BACK')" />
         <span class="status-pill" [class.done]="photoStatus.back">
           {{ photoStatus.back ? 'Selected' : 'Missing' }}
         </span>
@@ -166,8 +172,16 @@
     </div>
 
     <div class="form-actions">
-      <button class="btn btn-primary" type="submit" [disabled]="loading || !photosValid">
-        {{ loading ? 'Submitting...' : 'Submit Check-in' }}
+      <button class="btn btn-primary" type="submit" [disabled]="loading || (!editingCheckinId && !photosValid)">
+        {{ loading ? (editingCheckinId ? 'Saving...' : 'Submitting...') : (editingCheckinId ? 'Save Check-in Changes' : 'Submit Check-in') }}
+      </button>
+      <button
+        *ngIf="editingCheckinId"
+        type="button"
+        class="btn btn-secondary"
+        (click)="cancelEdit()"
+        [disabled]="loading">
+        Cancel Edit
       </button>
     </div>
 
@@ -189,18 +203,27 @@
       <article class="history-item" *ngFor="let item of memberHistory">
         <div class="history-head">
           <div class="history-date">{{ formatHistoryDate(item.submittedAt) }}</div>
-          <button
-            type="button"
-            class="history-delete-btn"
-            [disabled]="deletingCheckinId === item.id"
-            (click)="deleteHistoryItem(item.id)">
-            {{ deletingCheckinId === item.id ? 'Deleting...' : 'Delete' }}
-          </button>
+          <div class="history-actions">
+            <button
+              type="button"
+              class="history-edit-btn"
+              (click)="editHistoryItem(item)">
+              Edit
+            </button>
+            <button
+              type="button"
+              class="history-delete-btn"
+              [disabled]="deletingCheckinId === item.id"
+              (click)="deleteHistoryItem(item.id)">
+              {{ deletingCheckinId === item.id ? 'Deleting...' : 'Delete' }}
+            </button>
+          </div>
         </div>
         <div class="history-metrics">
           <span *ngIf="item.weight != null"><b>Weight:</b> {{ item.weight }} kg</span>
           <span *ngIf="item.dietAdherence != null"><b>Diet:</b> {{ item.dietAdherence }}/10</span>
           <span *ngIf="item.stepsAvg != null"><b>Steps:</b> {{ item.stepsAvg }}</span>
+          <span *ngIf="item.exerciseRating != null"><b>Exercise Rating:</b> {{ item.exerciseRating }}/10</span>
           <span *ngIf="item.energy != null"><b>Energy:</b> {{ item.energy }}/10</span>
         </div>
         <div *ngIf="item.notes" class="history-notes">{{ item.notes }}</div>

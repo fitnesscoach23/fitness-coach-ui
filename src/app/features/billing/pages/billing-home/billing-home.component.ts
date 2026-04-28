@@ -43,11 +43,13 @@ export class BillingHomeComponent implements OnInit {
   billingRowsLoading = true;
 
   subscription: any = null;
+  subscriptionHistory: any[] = [];
   subscriptionLoading = false;
   payments: any[] = [];
   paymentsLoading = false;
 
   paymentAmount: number | null = null;
+  confirmPaymentDates: Record<string, string> = {};
   paymentActionLoading = false;
   paymentActionError: string | null = null;
   deletingPaymentId: string | null = null;
@@ -78,7 +80,7 @@ export class BillingHomeComponent implements OnInit {
   }
 
   get displayedActiveSince(): string {
-    return this.overrideActiveSince || this.subscription?.startDate || '-';
+    return this.overrideActiveSince || this.getOriginalSubscriptionStartDate() || '-';
   }
 
   get displayedRenewalDate(): string {
@@ -131,8 +133,8 @@ export class BillingHomeComponent implements OnInit {
 
   private fetchBillingBundle(memberId: string) {
     const subscription$ = this.billingApi.getSubscription(memberId).pipe(
-      map((res: any[]) => (res?.length ? res[0] : null)),
-      catchError(() => of(null))
+      map((res: any[]) => (Array.isArray(res) ? res : [])),
+      catchError(() => of([]))
     );
 
     const payments$ = this.billingApi.getPaymentHistory(memberId).pipe(
@@ -150,12 +152,15 @@ export class BillingHomeComponent implements OnInit {
 
     this.fetchBillingBundle(this.selectedMemberId).subscribe({
       next: ({ subscription, payments }) => {
-        this.subscription = subscription;
+        this.subscriptionHistory = subscription;
+        this.subscription = subscription.length ? subscription[0] : null;
         this.payments = [...(payments || [])];
+        this.initializeConfirmPaymentDates();
         this.calculatePaymentSummary();
 
-        if (!this.overrideActiveSince && this.subscription?.startDate) {
-          this.overrideActiveSince = this.normalizeDateInput(this.subscription.startDate);
+        const originalStartDate = this.getOriginalSubscriptionStartDate();
+        if (!this.overrideActiveSince && originalStartDate) {
+          this.overrideActiveSince = this.normalizeDateInput(originalStartDate);
         }
         if (!this.overrideRenewalDate && this.subscription?.endDate) {
           this.overrideRenewalDate = this.normalizeDateInput(this.subscription.endDate);
@@ -183,6 +188,7 @@ export class BillingHomeComponent implements OnInit {
     const requests = this.members.map((member) =>
       this.fetchBillingBundle(member.id).pipe(
         map(({ subscription, payments }) => {
+          const latestSubscription = subscription.length ? subscription[0] : null;
           const totalPaid = (payments || [])
             .filter((p: any) => p.status === 'SUCCESS')
             .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
@@ -194,9 +200,9 @@ export class BillingHomeComponent implements OnInit {
             id: member.id,
             fullName: member.fullName,
             email: member.email,
-            planName: subscription?.planName || 'No Plan',
-            status: subscription?.status || 'NO_PLAN',
-            renewalDate: this.resolveRenewalDate(member.id, subscription),
+            planName: latestSubscription?.planName || 'No Plan',
+            status: latestSubscription?.status || 'NO_PLAN',
+            renewalDate: this.resolveRenewalDate(member.id, latestSubscription),
             memberStatus: member.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
             totalPaid,
             totalPending
@@ -368,8 +374,12 @@ export class BillingHomeComponent implements OnInit {
   }
 
   confirmPayment(paymentId: string): void {
-    this.billingApi.confirmPayment(paymentId).subscribe({
+    this.billingApi.confirmPayment(
+      paymentId,
+      this.confirmPaymentDates[paymentId] || this.getTodayDateInput()
+    ).subscribe({
       next: () => {
+        this.clearStoredOverrideForSelectedMember();
         this.loadSelectedMemberBilling();
         this.loadAllMemberBilling();
       }
@@ -595,5 +605,44 @@ export class BillingHomeComponent implements OnInit {
 
   trackByMemberId(index: number, row: BillingRow): string {
     return row.id;
+  }
+
+  private initializeConfirmPaymentDates(): void {
+    const today = this.getTodayDateInput();
+    const nextDates: Record<string, string> = {};
+
+    (this.payments || []).forEach((payment) => {
+      if (payment?.status === 'PENDING' && payment?.mode === 'MANUAL') {
+        nextDates[payment.id] = this.normalizeDateInput(payment.paymentDate) || today;
+      }
+    });
+
+    this.confirmPaymentDates = nextDates;
+  }
+
+  private getTodayDateInput(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  private clearStoredOverrideForSelectedMember(): void {
+    if (!this.selectedMemberId) return;
+
+    localStorage.removeItem(this.getOverrideStorageKey(this.selectedMemberId));
+    this.overrideActiveSince = '';
+    this.overrideRenewalDate = '';
+    this.overrideMessage = null;
+  }
+
+  private getOriginalSubscriptionStartDate(): string | null {
+    if (!this.subscriptionHistory.length) {
+      return this.subscription?.startDate || null;
+    }
+
+    const startDates = this.subscriptionHistory
+      .map((item) => String(item?.startDate || '').trim())
+      .filter(Boolean)
+      .sort();
+
+    return startDates[0] || null;
   }
 }

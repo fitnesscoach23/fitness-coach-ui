@@ -863,11 +863,31 @@ input:focus {
   font-weight: 500;
 }
 
+.diet-optional-text {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 400;
+}
+
 .progress-content {
   display: grid;
   grid-template-columns: 1.6fr 1fr;
   gap: 20px;
   align-items: start;
+}
+
+.progress-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.progress-section-header .section-title {
+  margin: 0;
 }
 
 .progress-list {
@@ -877,6 +897,196 @@ input:focus {
 .weight-card {
   position: sticky;
   top: 16px;
+}
+
+.comparison-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.58);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+}
+
+.comparison-modal {
+  width: min(1360px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  background: #fffef7;
+  border-radius: 18px;
+  box-shadow: 0 28px 64px rgba(15, 23, 42, 0.28);
+  border: 1px solid #f1d27a;
+}
+
+.comparison-modal.maximized {
+  width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+}
+
+.comparison-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #f4e5b6;
+  background: linear-gradient(180deg, #fff6cf 0%, #fffdf3 100%);
+}
+
+.comparison-modal-header h3 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.comparison-modal-header p {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.comparison-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.comparison-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 320px) repeat(3, minmax(220px, 1fr));
+  gap: 0;
+}
+
+.comparison-zoom-shell {
+  width: fit-content;
+  min-width: 100%;
+  transition: transform 0.2s ease;
+}
+
+.comparison-summary-card,
+.comparison-photo-column {
+  border-right: 1px solid #d1d5db;
+}
+
+.comparison-photo-column:last-child {
+  border-right: 0;
+}
+
+.comparison-summary-card {
+  background: #fffefb;
+}
+
+.comparison-summary-title,
+.comparison-photo-title {
+  background: #ffd452;
+  padding: 12px 14px;
+  font-weight: 700;
+  text-align: center;
+  border-bottom: 1px solid #d9b13d;
+}
+
+.comparison-summary-table {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.comparison-label,
+.comparison-value {
+  padding: 10px 12px;
+  border-bottom: 1px solid #d1d5db;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 14px;
+}
+
+.comparison-label {
+  font-style: italic;
+  background: #fafafa;
+}
+
+.comparison-value {
+  font-weight: 600;
+  background: #ffffff;
+}
+
+.comparison-value.strong {
+  font-weight: 700;
+}
+
+.comparison-label.accent,
+.comparison-value.wide {
+  grid-column: 1 / -1;
+}
+
+.comparison-label.accent {
+  font-style: normal;
+  background: #ffd452;
+  border-bottom-color: #d9b13d;
+}
+
+.comparison-value.wide {
+  background: #fff;
+}
+
+.comparison-notes-value {
+  display: block;
+  text-align: left;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.comparison-photo-card {
+  min-height: 360px;
+  padding: 14px;
+  border-bottom: 1px solid #d1d5db;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+}
+
+.comparison-photo {
+  width: 100%;
+  max-width: 280px;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.comparison-photo-caption {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.comparison-photo-empty {
+  min-height: 260px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  color: #94a3b8;
+  font-size: 13px;
+  text-align: center;
+  padding: 16px;
 }
 
 @media (max-width: 980px) {
@@ -894,6 +1104,16 @@ input:focus {
 
   .progress-content {
     grid-template-columns: 1fr;
+  }
+
+  .comparison-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .comparison-summary-card,
+  .comparison-photo-column {
+    border-right: 0;
+    border-bottom: 1px solid #d1d5db;
   }
 
   .weight-card {

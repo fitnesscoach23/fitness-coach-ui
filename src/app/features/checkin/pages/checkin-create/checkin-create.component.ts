@@ -15,6 +15,7 @@ interface CheckinImportRow {
   weight: number | null;
   stepsAvg: number | null;
   dietAdherence: number | null;
+  exerciseRating: number | null;
   notes: string;
   frontViewUrl: string;
   sideViewUrl: string;
@@ -42,12 +43,14 @@ export class CheckinCreateComponent implements OnInit {
   historyLoading = false;
   historyError: string | null = null;
   deletingCheckinId: string | null = null;
+  editingCheckinId: string | null = null;
 
   // form fields
   memberId: string | null = null;
   weight: number | null = null;
   dietAdherence: number | null = null;
   stepsAvg: number | null = null;
+  exerciseRating: number | null = null;
   notes = '';
   frontViewUrl = '';
   sideViewUrl = '';
@@ -168,6 +171,7 @@ export class CheckinCreateComponent implements OnInit {
     this.stepsAvg = row.stepsAvg;
     this.dietAdherence = row.dietAdherence;
     this.notes = row.notes;
+    this.exerciseRating = row.exerciseRating;
     this.submittedAt = row.submittedAt;
     this.frontViewUrl = row.frontViewUrl || this.frontViewUrl;
     this.sideViewUrl = row.sideViewUrl || this.sideViewUrl;
@@ -193,6 +197,9 @@ export class CheckinCreateComponent implements OnInit {
 
     const dietAdherence = this.parseNumber(
       this.getByHeaderContains(row, ['How close are you following the diet plan'])
+    );
+    const exerciseRating = this.parseNumber(
+      this.getByHeaderContains(row, ['Exercise Rating', 'exercise rating', 'How would you rate your workouts'])
     );
 
     const frontViewUrl = String(
@@ -230,6 +237,7 @@ export class CheckinCreateComponent implements OnInit {
       weight,
       stepsAvg,
       dietAdherence,
+      exerciseRating,
       notes: notesParts.join('\n'),
       frontViewUrl,
       sideViewUrl,
@@ -318,7 +326,7 @@ export class CheckinCreateComponent implements OnInit {
       return;
     }
 
-    if (!this.photosValid) {
+    if (!this.editingCheckinId && !this.photosValid) {
       this.error = 'Front, side and back photos are mandatory';
       return;
     }
@@ -326,21 +334,35 @@ export class CheckinCreateComponent implements OnInit {
     this.loading = true;
     this.error = null;
 
-    this.api.createCheckin({
+    const payload = {
       memberId: this.memberId,
       weight: this.weight,
       dietAdherence: this.dietAdherence,
+      exerciseRating: this.exerciseRating,
       stepsAvg: this.stepsAvg,
       notes: this.notes,
       submittedAt: this.submittedAt
-    }).subscribe({
+    };
+
+    const request$ = this.editingCheckinId
+      ? this.api.updateCheckin(this.editingCheckinId, payload)
+      : this.api.createCheckin(payload);
+
+    request$.subscribe({
       next: (checkInId: string) => {
+        if (this.editingCheckinId) {
+          this.finish();
+          return;
+        }
+
         const cleanId = checkInId.replace(/"/g, '');
         this.uploadPhotos(cleanId);
       },
       error: () => {
         this.loading = false;
-        this.error = 'Failed to submit check-in';
+        this.error = this.editingCheckinId
+          ? 'Failed to update check-in'
+          : 'Failed to submit check-in';
       }
     });
   }
@@ -375,8 +397,10 @@ export class CheckinCreateComponent implements OnInit {
     this.weight = null;
     this.dietAdherence = null;
     this.stepsAvg = null;
+    this.exerciseRating = null;
     this.notes = '';
     this.submittedAt = null;
+    this.editingCheckinId = null;
 
     this.frontPhoto = null;
     this.sidePhoto = null;
@@ -482,6 +506,31 @@ onPhotoSelected(
         this.historyError = 'Failed to delete check-in history';
       }
     });
+  }
+
+  editHistoryItem(item: any) {
+    this.editingCheckinId = item.id;
+    this.success = false;
+    this.error = null;
+    this.submitAttempted = false;
+    this.memberId = item.memberId || this.memberId;
+    this.weight = item.weight != null ? Number(item.weight) : null;
+    this.dietAdherence = item.dietAdherence ?? null;
+    this.stepsAvg = item.stepsAvg ?? null;
+    this.exerciseRating = item.exerciseRating ?? item.energy ?? null;
+    this.notes = item.notes || '';
+    this.submittedAt = item.submittedAt || null;
+    this.frontPhoto = null;
+    this.sidePhoto = null;
+    this.backPhoto = null;
+    this.photoError = null;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  cancelEdit() {
+    this.reset();
+    this.error = null;
+    this.submitAttempted = false;
   }
 
 }

@@ -35,6 +35,20 @@ createWorkoutPlan(payload: any) {
   );
 }
 
+updateWorkoutPlan(
+  planId: string,
+  payload: {
+    title: string;
+    notes?: string;
+  }
+) {
+  return this.http.put(
+    `${environment.workoutApi}/workouts/${planId}`,
+    payload,
+    { responseType: 'text' }
+  );
+}
+
 getWorkoutPlanById(planId: string) {
   return this.http.get<any>(
     `${environment.workoutApi}/workouts/${planId}`

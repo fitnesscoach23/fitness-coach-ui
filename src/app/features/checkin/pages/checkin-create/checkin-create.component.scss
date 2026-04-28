@@ -260,6 +260,8 @@
   margin-top: 18px;
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .submit-success {
@@ -291,6 +293,29 @@
   font-size: 16px;
   font-weight: 700;
   color: #111827;
+}
+
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.history-edit-btn {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.history-edit-btn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
 }
 
 .history-delete-btn {

@@ -28,10 +28,10 @@ export class BillingApiService {
   );
 }
 
-confirmPayment(paymentId: string) {
+confirmPayment(paymentId: string, paymentDate?: string | null) {
   return this.http.post(
     `${environment.billingApi}/billing/payment/confirm/${paymentId}`,
-    {},
+    { paymentDate: paymentDate || null },
     { responseType: 'text' }
   );
 }
