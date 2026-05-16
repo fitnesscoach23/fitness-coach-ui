@@ -68,6 +68,7 @@ export class BillingHomeComponent implements OnInit {
   autoCalculateRenewal = true;
   overrideMessage: string | null = null;
   memberStatusUpdating = false;
+  memberStatusError: string | null = null;
 
   constructor(
     private memberApi: MemberApiService,
@@ -360,9 +361,20 @@ export class BillingHomeComponent implements OnInit {
     this.paymentActionError = null;
 
     this.billingApi.startManualPayment(this.selectedMemberId, this.paymentAmount).subscribe({
-      next: () => {
+      next: (createdPayment: any) => {
+        const paymentId = this.getCreatedPaymentId(createdPayment);
+        const paymentDate = this.getTodayDateInput();
+
+        if (paymentId && !this.isSuccessfulPayment(createdPayment)) {
+          this.finalizeStartedManualPayment(paymentId, paymentDate);
+          return;
+        }
+
         this.paymentActionLoading = false;
         this.paymentAmount = null;
+        if (this.isSuccessfulPayment(createdPayment)) {
+          this.clearDashboardBillingSnapshotForSelectedMember();
+        }
         this.loadSelectedMemberBilling();
         this.loadAllMemberBilling();
       },
@@ -374,12 +386,14 @@ export class BillingHomeComponent implements OnInit {
   }
 
   confirmPayment(paymentId: string): void {
+    const paymentDate = this.confirmPaymentDates[paymentId] || this.getTodayDateInput();
+
     this.billingApi.confirmPayment(
       paymentId,
-      this.confirmPaymentDates[paymentId] || this.getTodayDateInput()
+      paymentDate
     ).subscribe({
       next: () => {
-        this.clearStoredOverrideForSelectedMember();
+        this.clearDashboardBillingSnapshotForSelectedMember();
         this.loadSelectedMemberBilling();
         this.loadAllMemberBilling();
       }
@@ -547,12 +561,14 @@ export class BillingHomeComponent implements OnInit {
     if (status === 'ACTIVE' && this.isExpired(row.renewalDate)) return;
 
     this.memberStatusUpdating = true;
+    this.memberStatusError = null;
     this.memberApi.patchMemberStatus(memberId, status).subscribe({
       next: () => {
         this.applyMemberStatusLocally(memberId, status);
         this.memberStatusUpdating = false;
       },
-      error: () => {
+      error: (err) => {
+        this.memberStatusError = err?.error?.message || 'Failed to update member status';
         this.memberStatusUpdating = false;
       }
     });
@@ -624,13 +640,40 @@ export class BillingHomeComponent implements OnInit {
     return new Date().toISOString().slice(0, 10);
   }
 
-  private clearStoredOverrideForSelectedMember(): void {
+  private finalizeStartedManualPayment(paymentId: string, paymentDate: string): void {
+    this.billingApi.confirmPayment(paymentId, paymentDate).subscribe({
+      next: () => {
+        this.paymentActionLoading = false;
+        this.paymentAmount = null;
+        this.clearDashboardBillingSnapshotForSelectedMember();
+        this.loadSelectedMemberBilling();
+        this.loadAllMemberBilling();
+      },
+      error: () => {
+        this.paymentActionLoading = false;
+        this.paymentActionError = 'Payment was created, but confirmation failed. Confirm it from Payment History.';
+        this.loadSelectedMemberBilling();
+        this.loadAllMemberBilling();
+      }
+    });
+  }
+
+  private getCreatedPaymentId(payment: any): string {
+    if (typeof payment === 'string') {
+      return payment.trim();
+    }
+
+    return String(payment?.id || payment?.paymentId || payment?.payment?.id || '').trim();
+  }
+
+  private isSuccessfulPayment(payment: any): boolean {
+    return String(payment?.status || payment?.payment?.status || '').toUpperCase() === 'SUCCESS';
+  }
+
+  private clearDashboardBillingSnapshotForSelectedMember(): void {
     if (!this.selectedMemberId) return;
 
-    localStorage.removeItem(this.getOverrideStorageKey(this.selectedMemberId));
-    this.overrideActiveSince = '';
-    this.overrideRenewalDate = '';
-    this.overrideMessage = null;
+    localStorage.removeItem(`dashboard_billing_snapshot_override_${this.selectedMemberId}`);
   }
 
   private getOriginalSubscriptionStartDate(): string | null {

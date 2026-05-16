@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { MemberApiService } from '../../../../core/api/member-api.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -52,6 +52,9 @@ type CheckinReminderRow = {
   styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent implements OnInit {
+  @ViewChild('checkinReminderSnapshot') checkinReminderSnapshot?: ElementRef<HTMLElement>;
+  @ViewChild('billingSnapshot') billingSnapshot?: ElementRef<HTMLElement>;
+
   private readonly dueSoonDays = 7;
 
   totalMembers = 0;
@@ -76,6 +79,8 @@ export class DashboardComponent implements OnInit {
   checkinCadenceDays = 7;
   activeSmartPanel: 'checkins' | 'billing' = 'checkins';
   selectedCheckinMember: CheckinReminderRow | null = null;
+  checkinShareStatus = '';
+  billingShareStatus = '';
 
   constructor(
     private memberApi: MemberApiService,
@@ -258,6 +263,142 @@ export class DashboardComponent implements OnInit {
     return improved ? 'trend-positive' : 'trend-negative';
   }
 
+  getCheckinCadenceLabel(member: CheckinReminderRow | null): string {
+    if (!member?.cadenceConfigured) return 'Cadence not set';
+    return member.cadenceDays === 7 ? 'Weekly' : 'Every 2 weeks';
+  }
+
+  getCheckinReminderTitle(member: CheckinReminderRow | null): string {
+    if (!member?.cadenceConfigured) return 'Check-in Tracking Setup';
+    if (member.daysUntilDue < 0) return 'Check-in Overdue';
+    if (member.daysUntilDue === 0) return 'Check-in Due Today';
+    return 'Upcoming Check-in';
+  }
+
+  getCheckinReminderMessage(member: CheckinReminderRow | null): string {
+    if (!member) return '';
+
+    const firstName = this.getFirstName(member.fullName);
+
+    if (!member.cadenceConfigured) {
+      return `Hi ${firstName}, your progress check-in reminder schedule is being set up. Please share your latest progress update when requested.`;
+    }
+
+    const dueLabel = this.getCheckinDueLabel(member.daysUntilDue).toLowerCase();
+    const nextDue = this.formatDate(member.nextCheckinDate);
+
+    return `Hi ${firstName}, your progress check-in is ${dueLabel}. 
+    Please fill the below checkin form , so we can keep your plan moving. 
+    Due date: ${nextDue}.`;
+  }
+
+  openCheckinReminderInGmail(): void {
+    if (!this.selectedCheckinMember) return;
+
+    const subject = `${this.getCheckinReminderTitle(this.selectedCheckinMember)} - ${this.selectedCheckinMember.fullName}`;
+    const body = this.getCheckinReminderMessage(this.selectedCheckinMember);
+    const recipient = this.selectedCheckinMember.email || '';
+    const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(recipient)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    window.open(url, '_blank', 'noopener');
+    this.checkinShareStatus = 'Gmail opened. Attach the downloaded screenshot if needed.';
+  }
+
+  async copyCheckinReminderMessage(): Promise<void> {
+    const message = this.getCheckinReminderMessage(this.selectedCheckinMember);
+    if (!message) return;
+
+    try {
+      await navigator.clipboard.writeText(message);
+      this.checkinShareStatus = 'Reminder message copied.';
+    } catch {
+      this.checkinShareStatus = 'Could not copy message in this browser.';
+    }
+  }
+
+  async downloadCheckinReminderScreenshot(): Promise<void> {
+    const element = this.checkinReminderSnapshot?.nativeElement;
+    if (!element || !this.selectedCheckinMember) return;
+
+    this.checkinShareStatus = 'Preparing screenshot...';
+
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(element, {
+        backgroundColor: '#ffffff',
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+        useCORS: true
+      });
+      const link = document.createElement('a');
+      link.download = `${this.slugify(this.selectedCheckinMember.fullName)}-checkin-reminder.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      this.checkinShareStatus = 'Screenshot downloaded.';
+    } catch {
+      this.checkinShareStatus = 'Could not create screenshot.';
+    }
+  }
+
+  getBillingReminderSubject(member: DueSoonMember | null): string {
+    if (!member) return '';
+    const status = this.isOverdue(member.daysRemaining) ? 'Billing Overdue' : 'Billing Due Soon';
+    return `${status} - ${member.fullName}`;
+  }
+
+  getBillingReminderMessage(member: DueSoonMember | null): string {
+    if (!member) return '';
+
+    const firstName = this.getFirstName(member.fullName);
+    return `Hi ${firstName}, your membership renewal is pending. Please clear the due amount of ${this.formatCurrency(member.totalPending)} to continue your coaching plan. Renewal date: ${this.formatDate(member.renewalDate)}.`;
+  }
+
+  openBillingReminderInGmail(): void {
+    if (!this.selectedDueMember) return;
+
+    const subject = this.getBillingReminderSubject(this.selectedDueMember);
+    const body = this.getBillingReminderMessage(this.selectedDueMember);
+    const recipient = this.selectedDueMember.email || '';
+    const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(recipient)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    window.open(url, '_blank', 'noopener');
+    this.billingShareStatus = 'Gmail opened. Attach the downloaded screenshot if needed.';
+  }
+
+  async copyBillingReminderMessage(): Promise<void> {
+    const message = this.getBillingReminderMessage(this.selectedDueMember);
+    if (!message) return;
+
+    try {
+      await navigator.clipboard.writeText(message);
+      this.billingShareStatus = 'Reminder message copied.';
+    } catch {
+      this.billingShareStatus = 'Could not copy message in this browser.';
+    }
+  }
+
+  async downloadBillingScreenshot(): Promise<void> {
+    const element = this.billingSnapshot?.nativeElement;
+    if (!element || !this.selectedDueMember) return;
+
+    this.billingShareStatus = 'Preparing screenshot...';
+
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(element, {
+        backgroundColor: '#ffffff',
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+        useCORS: true
+      });
+      const link = document.createElement('a');
+      link.download = `${this.slugify(this.selectedDueMember.fullName)}-billing-reminder.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      this.billingShareStatus = 'Screenshot downloaded.';
+    } catch {
+      this.billingShareStatus = 'Could not create screenshot.';
+    }
+  }
+
   private loadDueSoonBilling(members: any[]): void {
     if (!members.length) {
       this.dueSoonMembers = [];
@@ -282,8 +423,10 @@ export class DashboardComponent implements OnInit {
           const pendingTotal = (payments || [])
             .filter((payment: any) => payment.status === 'PENDING')
             .reduce((sum: number, payment: any) => sum + (payment.amount || 0), 0);
-          const previousMonthAmount = this.getPreviousMonthSuccessfulAmount(payments || []);
-          const latestPaidAmount = this.getLatestSuccessfulPaymentAmount(payments || []);
+          const successfulPayments = this.getSuccessfulPayments(payments || []);
+          const previousMonthAmount = this.getPreviousMonthSuccessfulAmount(successfulPayments);
+          const latestPaidAmount = this.getLatestSuccessfulPaymentAmount(successfulPayments);
+          const latestPaidDate = this.getLatestSuccessfulPaymentDate(successfulPayments);
           const subscriptionAmount = this.getSubscriptionAmount(subscription);
           const fallbackAmount = previousMonthAmount || latestPaidAmount || subscriptionAmount;
           const totalPending = snapshotOverride?.pendingAmount ?? (pendingTotal || fallbackAmount);
@@ -298,7 +441,12 @@ export class DashboardComponent implements OnInit {
                   : subscriptionAmount > 0
                     ? 'Plan amount'
                     : 'No amount found';
-          const renewalDate = snapshotOverride?.renewalDate || override?.renewalDate || subscription?.endDate || '';
+          const baseRenewalDate = snapshotOverride?.renewalDate || override?.renewalDate || subscription?.endDate || '';
+          const renewalDate = this.resolveBillingRenewalDate(
+            baseRenewalDate,
+            latestPaidDate,
+            override?.cycle || subscription?.cycle || subscription?.billingCycle || subscription?.duration
+          );
           const daysRemaining = this.getDaysRemaining(renewalDate);
 
           return {
@@ -445,8 +593,7 @@ export class DashboardComponent implements OnInit {
     const targetMonth = target.getMonth();
     const targetYear = target.getFullYear();
 
-    return payments
-      .filter((payment: any) => payment.status === 'SUCCESS')
+    return this.getSuccessfulPayments(payments)
       .filter((payment: any) => {
         const parsed = new Date(payment.paymentDate || payment.createdAt || payment.updatedAt);
         return !Number.isNaN(parsed.getTime())
@@ -576,14 +723,13 @@ export class DashboardComponent implements OnInit {
     return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   }
 
-  private getPreviousMonthSuccessfulAmount(payments: any[]): number {
+  private getPreviousMonthSuccessfulAmount(successfulPayments: any[]): number {
     const target = new Date();
     target.setMonth(target.getMonth() - 1);
     const targetMonth = target.getMonth();
     const targetYear = target.getFullYear();
 
-    return payments
-      .filter((payment: any) => payment.status === 'SUCCESS')
+    return successfulPayments
       .filter((payment: any) => {
         const parsed = new Date(payment.paymentDate || payment.createdAt || payment.updatedAt);
         return !Number.isNaN(parsed.getTime())
@@ -593,16 +739,61 @@ export class DashboardComponent implements OnInit {
       .reduce((sum: number, payment: any) => sum + (Number(payment.amount) || 0), 0);
   }
 
-  private getLatestSuccessfulPaymentAmount(payments: any[]): number {
-    const latestPayment = payments
-      .filter((payment: any) => payment.status === 'SUCCESS')
+  private getLatestSuccessfulPaymentAmount(successfulPayments: any[]): number {
+    const latestPayment = this.getLatestSuccessfulPayment(successfulPayments);
+
+    return Number(latestPayment?.amount) || 0;
+  }
+
+  private getLatestSuccessfulPaymentDate(successfulPayments: any[]): string {
+    const latestPayment = this.getLatestSuccessfulPayment(successfulPayments);
+
+    return latestPayment?.paymentDate || latestPayment?.createdAt || latestPayment?.updatedAt || '';
+  }
+
+  private getLatestSuccessfulPayment(successfulPayments: any[]): any | null {
+    return [...successfulPayments]
       .sort((a: any, b: any) => {
         const first = new Date(a.paymentDate || a.createdAt || a.updatedAt).getTime() || 0;
         const second = new Date(b.paymentDate || b.createdAt || b.updatedAt).getTime() || 0;
         return second - first;
-      })[0];
+      })[0] || null;
+  }
 
-    return Number(latestPayment?.amount) || 0;
+  private getSuccessfulPayments(payments: any[]): any[] {
+    return payments.filter((payment: any) =>
+      String(payment?.status || '').toUpperCase() === 'SUCCESS'
+    );
+  }
+
+  private resolveBillingRenewalDate(
+    baseRenewalDate: string,
+    latestPaidDate: string,
+    cycle: string
+  ): string {
+    const normalizedRenewal = this.normalizeDateInput(baseRenewalDate);
+    const normalizedPayment = this.normalizeDateInput(latestPaidDate);
+    if (!normalizedPayment) return baseRenewalDate;
+    if (!normalizedRenewal) {
+      return this.addMonths(normalizedPayment, this.getCycleMonths(cycle));
+    }
+
+    const paymentTime = new Date(`${normalizedPayment}T00:00:00`).getTime();
+    const renewalTime = new Date(`${normalizedRenewal}T00:00:00`).getTime();
+    if (Number.isNaN(paymentTime) || Number.isNaN(renewalTime)) return baseRenewalDate;
+
+    if (paymentTime >= renewalTime) {
+      return this.addMonths(normalizedPayment, this.getCycleMonths(cycle));
+    }
+
+    return baseRenewalDate;
+  }
+
+  private getCycleMonths(cycle: string): number {
+    const normalized = String(cycle || '').toUpperCase();
+    if (normalized.includes('YEAR') || normalized === '12') return 12;
+    if (normalized.includes('QUARTER') || normalized === '3') return 3;
+    return 1;
   }
 
   private getSubscriptionAmount(subscription: any): number {
@@ -629,6 +820,14 @@ export class DashboardComponent implements OnInit {
     return parsed.toISOString().slice(0, 10);
   }
 
+  private addMonths(value: string, months: number): string {
+    const parsed = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return value;
+
+    parsed.setMonth(parsed.getMonth() + months);
+    return parsed.toISOString().slice(0, 10);
+  }
+
   private getTodayDateInput(): string {
     return new Date().toISOString().slice(0, 10);
   }
@@ -644,6 +843,18 @@ export class DashboardComponent implements OnInit {
 
   private formatSmartNumber(value: number): string {
     return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
+  }
+
+  private getFirstName(value: string): string {
+    return String(value || 'there').trim().split(/\s+/)[0] || 'there';
+  }
+
+  private slugify(value: string): string {
+    return String(value || 'member')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'member';
   }
 
   private getStoredOverride(memberId: string): any | null {

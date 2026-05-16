@@ -55,7 +55,7 @@ export class CheckinCreateComponent implements OnInit {
   frontViewUrl = '';
   sideViewUrl = '';
   backViewUrl = '';
-  submittedAt: string | null = null;
+  submittedAt: string | null = this.toSubmittedAtIso(this.toDateInputValue(new Date()));
 
   members: any[] = [];
 
@@ -321,8 +321,8 @@ export class CheckinCreateComponent implements OnInit {
   submit() {
     this.submitAttempted = true;
 
-    if (!this.memberId || !this.weight) {
-      this.error = 'Member and weight are required';
+    if (!this.memberId || !this.submittedAt || !this.weight) {
+      this.error = 'Member, date and weight are required';
       return;
     }
 
@@ -399,7 +399,7 @@ export class CheckinCreateComponent implements OnInit {
     this.stepsAvg = null;
     this.exerciseRating = null;
     this.notes = '';
-    this.submittedAt = null;
+    this.submittedAt = this.toSubmittedAtIso(this.toDateInputValue(new Date()));
     this.editingCheckinId = null;
 
     this.frontPhoto = null;
@@ -459,6 +459,29 @@ onPhotoSelected(
     const memberName = row.memberName || 'Unnamed';
     const dateLabel = this.formatHistoryDate(row.submittedAt);
     return `${dateLabel} - ${memberName}`;
+  }
+
+  get submittedAtDate(): string {
+    return this.toDateInputValue(this.submittedAt);
+  }
+
+  set submittedAtDate(value: string) {
+    this.submittedAt = value ? this.toSubmittedAtIso(value) : null;
+  }
+
+  private toSubmittedAtIso(dateValue: string): string {
+    const [year, month, day] = dateValue.split('-').map(Number);
+    return new Date(year, month - 1, day).toISOString();
+  }
+
+  private toDateInputValue(value: string | Date | null | undefined): string {
+    const parsed = value instanceof Date ? value : value ? new Date(value) : new Date();
+    if (Number.isNaN(parsed.getTime())) return '';
+
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private loadMemberHistory(memberId: string) {

@@ -53,7 +53,8 @@ updateMember(memberId: string, payload: any) {
 patchMemberStatus(memberId: string, status: MemberStatus) {
   return this.http.patch(
     `${environment.memberApi}/members/${memberId}/status`,
-    { status }
+    { status },
+    { responseType: 'text' }
   );
 }
 

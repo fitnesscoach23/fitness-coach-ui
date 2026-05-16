@@ -289,6 +289,55 @@ export class MemberProfileComponent implements OnInit {
     return this.parseDietItemFoodName(foodName).optionalAlternatives;
   }
 
+  private getDietPlanTotals(): { calories: number | null; protein: number | null; carbs: number | null; fats: number | null } {
+    const items = this.groupedDietMeals.flatMap((meal) => meal.items || []);
+    let calories = 0;
+    let protein = 0;
+    let carbs = 0;
+    let fats = 0;
+    let hasCalories = false;
+    let hasProtein = false;
+    let hasCarbs = false;
+    let hasFats = false;
+
+    items.forEach((item: any) => {
+      const itemProtein = this.toNumberOrNull(item?.protein);
+      const itemCarbs = this.toNumberOrNull(item?.carbs);
+      const itemFats = this.toNumberOrNull(item?.fat ?? item?.fats);
+      const itemCalories = this.toNumberOrNull(item?.calories);
+
+      if (itemProtein != null) {
+        protein += itemProtein;
+        hasProtein = true;
+      }
+
+      if (itemCarbs != null) {
+        carbs += itemCarbs;
+        hasCarbs = true;
+      }
+
+      if (itemFats != null) {
+        fats += itemFats;
+        hasFats = true;
+      }
+
+      if (itemCalories != null) {
+        calories += itemCalories;
+        hasCalories = true;
+      } else if (itemProtein != null || itemCarbs != null || itemFats != null) {
+        calories += ((itemProtein ?? 0) * 4) + ((itemCarbs ?? 0) * 4) + ((itemFats ?? 0) * 9);
+        hasCalories = true;
+      }
+    });
+
+    return {
+      calories: hasCalories ? this.roundTo(calories, 0) : null,
+      protein: hasProtein ? this.roundTo(protein, 0) : null,
+      carbs: hasCarbs ? this.roundTo(carbs, 0) : null,
+      fats: hasFats ? this.roundTo(fats, 0) : null
+    };
+  }
+
   getMemberValue(key: string): any {
     return this.member?.[key];
   }
@@ -560,11 +609,6 @@ export class MemberProfileComponent implements OnInit {
     }
     if (proteinRda <= 0) {
       this.bodyMetricsMessage = 'Protein RDA must be greater than 0';
-      this.bodyMetricsSaving = false;
-      return;
-    }
-    if (carbFactor != null && carbFactor < 0) {
-      this.bodyMetricsMessage = 'Carb factor must be 0 or greater';
       this.bodyMetricsSaving = false;
       return;
     }
@@ -1046,8 +1090,6 @@ confirmPayment(paymentId: string) {
     this.confirmPaymentDates[paymentId] || this.getTodayDateInput()
   ).subscribe({
     next: () => {
-      this.clearStoredSubscriptionOverride();
-
       // refresh everything
       this.subscriptionLoading = true;
       this.paymentsLoading = true;
@@ -1789,10 +1831,11 @@ get canCompareProgress(): boolean {
 }
 
 get currentDietPlanSummary(): string {
-  const calories = this.toNumberOrNull(this.bodyMetrics.targetCalories);
-  const carbs = this.toNumberOrNull(this.bodyMetrics.carbsGrams);
-  const protein = this.toNumberOrNull(this.bodyMetrics.proteinGrams);
-  const fats = this.toNumberOrNull(this.bodyMetrics.fatsGrams);
+  const totals = this.getDietPlanTotals();
+  const calories = totals.calories;
+  const carbs = totals.carbs;
+  const protein = totals.protein;
+  const fats = totals.fats;
 
   const macroParts = [
     carbs != null ? `${carbs}g Carbs` : null,
@@ -1909,13 +1952,6 @@ private initializeConfirmPaymentDates(): void {
 
 private getTodayDateInput(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-private clearStoredSubscriptionOverride(): void {
-  localStorage.removeItem(this.getOverrideStorageKey());
-  this.overrideActiveSince = '';
-  this.overrideRenewalDate = '';
-  this.overrideMessage = null;
 }
 
 private getOriginalSubscriptionStartDate(): string | null {

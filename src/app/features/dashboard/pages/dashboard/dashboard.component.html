@@ -161,75 +161,137 @@
             </div>
           </div>
 
-          <div class="checkin-summary-card" *ngIf="selectedCheckinMember; else noCheckinMemberSelected">
-            <div class="checkin-summary-head">
-              <div>
-                <div class="snapshot-eyebrow checkin-eyebrow">
-                  {{ selectedCheckinMember.cadenceConfigured ? 'Latest Progress Summary' : 'Tracking Setup Needed' }}
+          <div class="checkin-detail-stack" *ngIf="selectedCheckinMember; else noCheckinMemberSelected">
+            <div class="checkin-summary-card">
+              <div class="checkin-summary-head">
+                <div>
+                  <div class="snapshot-eyebrow checkin-eyebrow">
+                    {{ selectedCheckinMember.cadenceConfigured ? 'Latest Progress Summary' : 'Tracking Setup Needed' }}
+                  </div>
+                  <h3>{{ selectedCheckinMember.fullName }}</h3>
+                  <p>{{ selectedCheckinMember.email }}</p>
                 </div>
-                <h3>{{ selectedCheckinMember.fullName }}</h3>
-                <p>{{ selectedCheckinMember.email }}</p>
+                <div class="checkin-summary-date">
+                  {{ formatDate(selectedCheckinMember.lastCheckinDate) }}
+                </div>
               </div>
-              <div class="checkin-summary-date">
-                {{ formatDate(selectedCheckinMember.lastCheckinDate) }}
+
+              <div class="checkin-summary-grid">
+                <div>
+                  <span>Weight</span>
+                  <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestWeight, ' kg') }}</strong>
+                  <em [class]="getCheckinTrendClass(selectedCheckinMember.weightDelta, true)">
+                    {{ getCheckinDeltaLabel(selectedCheckinMember.weightDelta, ' kg') }}
+                  </em>
+                </div>
+                <div>
+                  <span>Steps Avg</span>
+                  <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestSteps) }}</strong>
+                  <em [class]="getCheckinTrendClass(selectedCheckinMember.stepsDelta)">
+                    {{ getCheckinDeltaLabel(selectedCheckinMember.stepsDelta) }}
+                  </em>
+                </div>
+                <div>
+                  <span>Diet Adherence</span>
+                  <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestDietAdherence, '/10') }}</strong>
+                  <em>Latest</em>
+                </div>
+                <div>
+                  <span>Energy</span>
+                  <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestEnergy, '/10') }}</strong>
+                  <em>Latest</em>
+                </div>
+                <div>
+                  <span>Exercise Rating</span>
+                  <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestExerciseRating, '/10') }}</strong>
+                  <em>Latest</em>
+                </div>
+                <div>
+                  <span>Check-ins Logged</span>
+                  <strong>{{ selectedCheckinMember.checkinCount }}</strong>
+                  <em>{{ selectedCheckinMember.cadenceConfigured ? getCheckinDueLabel(selectedCheckinMember.daysUntilDue) : 'No cadence set' }}</em>
+                </div>
+              </div>
+
+              <div class="checkin-summary-notes">
+                <span>Coach Notes</span>
+                <p>{{ selectedCheckinMember.latestNotes || 'No notes on the latest progress check-in.' }}</p>
+              </div>
+
+              <div class="checkin-summary-footer">
+                <div>
+                  <span>Current vs Previous</span>
+                  <strong>
+                    {{ formatDate(selectedCheckinMember.latestCheckin?.submittedAt || selectedCheckinMember.latestCheckin?.checkInDate || selectedCheckinMember.latestCheckin?.createdAt) }}
+                    <ng-container *ngIf="selectedCheckinMember.previousCheckin">
+                      vs {{ formatDate(selectedCheckinMember.previousCheckin?.submittedAt || selectedCheckinMember.previousCheckin?.checkInDate || selectedCheckinMember.previousCheckin?.createdAt) }}
+                    </ng-container>
+                  </strong>
+                </div>
+                <div>
+                  <span>Next Due</span>
+                  <strong>{{ formatDate(selectedCheckinMember.nextCheckinDate) }}</strong>
+                </div>
               </div>
             </div>
 
-            <div class="checkin-summary-grid">
-              <div>
-                <span>Weight</span>
-                <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestWeight, ' kg') }}</strong>
-                <em [class]="getCheckinTrendClass(selectedCheckinMember.weightDelta, true)">
-                  {{ getCheckinDeltaLabel(selectedCheckinMember.weightDelta, ' kg') }}
-                </em>
-              </div>
-              <div>
-                <span>Steps Avg</span>
-                <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestSteps) }}</strong>
-                <em [class]="getCheckinTrendClass(selectedCheckinMember.stepsDelta)">
-                  {{ getCheckinDeltaLabel(selectedCheckinMember.stepsDelta) }}
-                </em>
-              </div>
-              <div>
-                <span>Diet Adherence</span>
-                <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestDietAdherence, '/10') }}</strong>
-                <em>Latest</em>
-              </div>
-              <div>
-                <span>Energy</span>
-                <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestEnergy, '/10') }}</strong>
-                <em>Latest</em>
-              </div>
-              <div>
-                <span>Exercise Rating</span>
-                <strong>{{ getCheckinMetricValue(selectedCheckinMember.latestExerciseRating, '/10') }}</strong>
-                <em>Latest</em>
-              </div>
-              <div>
-                <span>Check-ins Logged</span>
-                <strong>{{ selectedCheckinMember.checkinCount }}</strong>
-                <em>{{ selectedCheckinMember.cadenceConfigured ? getCheckinDueLabel(selectedCheckinMember.daysUntilDue) : 'No cadence set' }}</em>
-              </div>
+            <div class="snapshot-share-actions">
+              <button type="button" class="primary-action" (click)="downloadCheckinReminderScreenshot()">
+                Download Screenshot
+              </button>
+              <button type="button" class="secondary-action" (click)="openCheckinReminderInGmail()">
+                Open Gmail
+              </button>
+              <button type="button" class="secondary-action" (click)="copyCheckinReminderMessage()">
+                Copy Message
+              </button>
+              <span *ngIf="checkinShareStatus">{{ checkinShareStatus }}</span>
             </div>
 
-            <div class="checkin-summary-notes">
-              <span>Coach Notes</span>
-              <p>{{ selectedCheckinMember.latestNotes || 'No notes on the latest progress check-in.' }}</p>
-            </div>
+            <div
+              #checkinReminderSnapshot
+              class="checkin-reminder-snapshot compact-snapshot"
+              [class.overdue-snapshot]="selectedCheckinMember.cadenceConfigured && selectedCheckinMember.daysUntilDue <= 0"
+              [class.setup-snapshot]="!selectedCheckinMember.cadenceConfigured">
+              <div class="snapshot-top">
+                <div>
+                  <div class="snapshot-eyebrow checkin-eyebrow">
+                    {{ getCheckinReminderTitle(selectedCheckinMember) }}
+                  </div>
+                  <h3>{{ selectedCheckinMember.fullName }}</h3>
+                  <p>{{ selectedCheckinMember.email }}</p>
+                  <p *ngIf="selectedCheckinMember.phone">{{ selectedCheckinMember.phone }}</p>
+                </div>
+              </div>
 
-            <div class="checkin-summary-footer">
-              <div>
-                <span>Current vs Previous</span>
+              <div class="checkin-reminder-status">
+                <span>Check-in Status</span>
                 <strong>
-                  {{ formatDate(selectedCheckinMember.latestCheckin?.submittedAt) }}
-                  <ng-container *ngIf="selectedCheckinMember.previousCheckin">
-                    vs {{ formatDate(selectedCheckinMember.previousCheckin?.submittedAt) }}
-                  </ng-container>
+                  {{ selectedCheckinMember.cadenceConfigured ? getCheckinDueLabel(selectedCheckinMember.daysUntilDue) : 'Cadence needed' }}
                 </strong>
               </div>
-              <div>
-                <span>Next Due</span>
-                <strong>{{ formatDate(selectedCheckinMember.nextCheckinDate) }}</strong>
+
+              <div class="snapshot-grid">
+                <div>
+                  <span>Last Check-in</span>
+                  <strong>{{ formatDate(selectedCheckinMember.lastCheckinDate) }}</strong>
+                </div>
+                <div>
+                  <span>Next Due</span>
+                  <strong>{{ formatDate(selectedCheckinMember.nextCheckinDate) }}</strong>
+                </div>
+                <div>
+                  <span>Cadence</span>
+                  <strong>{{ getCheckinCadenceLabel(selectedCheckinMember) }}</strong>
+                </div>
+                <div>
+                  <span>Total Logged</span>
+                  <strong>{{ selectedCheckinMember.checkinCount }}</strong>
+                </div>
+              </div>
+
+              <div class="snapshot-note checkin-reminder-note">
+                {{ getCheckinReminderMessage(selectedCheckinMember) }}
               </div>
             </div>
           </div>
@@ -288,7 +350,21 @@
             </div>
           </div>
 
+          <div class="snapshot-share-actions">
+            <button type="button" class="primary-action" (click)="downloadBillingScreenshot()">
+              Download Screenshot
+            </button>
+            <button type="button" class="secondary-action" (click)="openBillingReminderInGmail()">
+              Open Gmail
+            </button>
+            <button type="button" class="secondary-action" (click)="copyBillingReminderMessage()">
+              Copy Message
+            </button>
+            <span *ngIf="billingShareStatus">{{ billingShareStatus }}</span>
+          </div>
+
           <div
+            #billingSnapshot
             class="billing-snapshot compact-snapshot"
             [class.overdue-snapshot]="isOverdue(selectedDueMember.daysRemaining)">
             <div class="snapshot-top">

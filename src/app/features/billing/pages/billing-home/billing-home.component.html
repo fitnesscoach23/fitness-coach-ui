@@ -152,6 +152,8 @@
           Send Reminder
         </button>
       </div>
+
+      <div *ngIf="memberStatusError" class="error">{{ memberStatusError }}</div>
     </div>
 
     <div class="card full-width">
